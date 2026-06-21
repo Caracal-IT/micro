@@ -3,7 +3,9 @@
   "version": 3,
   "type": "go",
   "selections": {
-    "capabilities": [],
+    "capabilities": [
+      "docker"
+    ],
     "language": [
       "go"
     ]
@@ -22,9 +24,12 @@
   "prompts": [
     ".opencode/prompts/"
   ],
-  "excluded": [],
+  "excluded": [
+    ".opencode/.gitignore"
+  ],
   "managed": [
     ".opencode/instructions/go.best-practices.instructions.md",
+    ".opencode/skills/docker/",
     ".opencode/skills/feature-documentation/",
     ".opencode/skills/real-work/"
   ]

@@ -5,7 +5,7 @@
 This project uses a structured AI context system to keep instructions,
 skills, agents, and prompts organised.
 
-**Stack:** Generic  
+**Stack:** Go  
 **Generator:** opencode CLI
 
 ### AI System Architecture
@@ -30,7 +30,7 @@ opencode generator
 
 ## Selected AI Items
 
-- capabilities: none
+- capabilities: docker
 - language: go
 
 ---
@@ -52,14 +52,14 @@ The `init` wizard walks through the following steps:
 
 ```bash
 # Initialise a new AI workspace (runs the interactive wizard)
-npx opencode init
+npx github:Caracal-IT/ai init
 
 # Initialise in a specific directory
-npx opencode init ./my-project
+npx github:Caracal-IT/ai init ./my-project
 
 # Regenerate .opencode/
-npx opencode generate
+npx github:Caracal-IT/ai generate
 
 # Update an existing AI workspace
-npx opencode update
+npx github:Caracal-IT/ai update
 ```

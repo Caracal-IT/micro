@@ -22,8 +22,8 @@ opencode generator
 
 ## AI System
 
-| Directory    | Role                                                 |
-|--------------|------------------------------------------------------|
+| Directory | Role |
+|-----------|------|
 | `.opencode/` | Source of truth generated from selected `src/` items |
 
 ---
@@ -32,6 +32,7 @@ opencode generator
 
 - capabilities: docker
 - language: go
+- ui: none
 
 ---
 

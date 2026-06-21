@@ -8,7 +8,8 @@
     ],
     "language": [
       "go"
-    ]
+    ],
+    "ui": []
   },
   "sourceRoot": ".opencode",
   "generatedRoot": ".opencode",
@@ -28,6 +29,7 @@
     ".opencode/.gitignore"
   ],
   "managed": [
+    ".opencode/instructions/ai-instructions.md",
     ".opencode/instructions/go.best-practices.instructions.md",
     ".opencode/skills/docker/",
     ".opencode/skills/feature-documentation/",

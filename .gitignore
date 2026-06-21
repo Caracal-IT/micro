@@ -1,0 +1,19 @@
+# IDE
+.idea
+
+# OS
+.DS_Store
+
+# Go binary
+micro
+front-end/micro
+front-end/cmd/web/web
+
+# Dependencies
+vendor/
+
+# Build artifacts
+/tmp/
+*.out
+*.test
+*.exe

@@ -9,7 +9,9 @@
     "language": [
       "go"
     ],
-    "ui": []
+    "ui": [
+      "caracal-brand-guidelines"
+    ]
   },
   "sourceRoot": ".opencode",
   "generatedRoot": ".opencode",
@@ -26,11 +28,15 @@
     ".opencode/prompts/"
   ],
   "excluded": [
-    ".opencode/.gitignore"
+    ".opencode/.gitignore",
+    ".opencode/node_modules/",
+    ".opencode/package-lock.json",
+    ".opencode/package.json"
   ],
   "managed": [
     ".opencode/instructions/ai-instructions.md",
     ".opencode/instructions/go.best-practices.instructions.md",
+    ".opencode/skills/caracal-brand-guidelines/",
     ".opencode/skills/docker/",
     ".opencode/skills/feature-documentation/",
     ".opencode/skills/real-work/"

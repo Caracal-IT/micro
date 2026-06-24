@@ -32,7 +32,7 @@ opencode generator
 
 - capabilities: docker
 - language: go
-- ui: none
+- ui: caracal-brand-guidelines
 
 ---
 

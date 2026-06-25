@@ -283,13 +283,15 @@ const H = ROWS * CELL + PAD * 2;
 
 // Colors with pre-parsed RGB equivalents for high speed 3D rendering
 const COLORS = [
-  { name:'Ruby',     m:'#ff0000', l:'#ff7777', d:'#660000', g:'rgba(255,0,0,0.3)', rgb_m:{r:255,g:0,b:0}, rgb_l:{r:255,g:119,b:119}, rgb_d:{r:102,g:0,b:0} },
-  { name:'Emerald',  m:'#00ff00', l:'#99ff99', d:'#006600', g:'rgba(0,255,0,0.3)', rgb_m:{r:0,g:255,b:0}, rgb_l:{r:153,g:255,b:153}, rgb_d:{r:0,g:102,b:0} },
-  { name:'Sapphire', m:'#0000ff', l:'#9999ff', d:'#000066', g:'rgba(0,0,255,0.3)', rgb_m:{r:0,g:0,b:255}, rgb_l:{r:153,g:153,b:255}, rgb_d:{r:0,g:0,b:102} },
-  { name:'Amethyst', m:'#ff00ff', l:'#ff99ff', d:'#660066', g:'rgba(255,0,255,0.3)', rgb_m:{r:255,g:0,b:255}, rgb_l:{r:255,g:153,b:255}, rgb_d:{r:102,g:0,b:102} },
-  { name:'Topaz',    m:'#ffcc00', l:'#ffff99', d:'#666600', g:'rgba(255,204,0,0.3)', rgb_m:{r:255,g:204,b:0}, rgb_l:{r:255,g:255,b:153}, rgb_d:{r:102,g:102,b:0} },
-  { name:'Diamond',  m:'#00ffff', l:'#ccffff', d:'#009999', g:'rgba(0,255,255,0.3)', rgb_m:{r:0,g:255,b:255}, rgb_l:{r:204,g:255,b:255}, rgb_d:{r:0,g:153,b:153} },
-  { name:'Pearl',    m:'#ffffff', l:'#ffccff', d:'#999999', g:'rgba(255,255,255,0.3)', rgb_m:{r:255,g:255,b:255}, rgb_l:{r:255,g:204,b:255}, rgb_d:{r:153,g:153,b:153} },
+   { name:'Ruby',     m:'#ff0000', l:'#ff7777', d:'#660000', g:'rgba(255,0,0,0.3)', rgb_m:{r:255,g:0,b:0}, rgb_l:{r:255,g:119,b:119}, rgb_d:{r:102,g:0,b:0} },
+   { name:'Emerald',  m:'#00ff00', l:'#99ff99', d:'#006600', g:'rgba(0,255,0,0.3)', rgb_m:{r:0,g:255,b:0}, rgb_l:{r:153,g:255,b:153}, rgb_d:{r:0,g:102,b:0} },
+   { name:'Sapphire', m:'#0000ff', l:'#9999ff', d:'#000066', g:'rgba(0,0,255,0.3)', rgb_m:{r:0,g:0,b:255}, rgb_l:{r:153,g:153,b:255}, rgb_d:{r:0,g:0,b:102} },
+   { name:'Amethyst', m:'#ff00ff', l:'#ff99ff', d:'#660066', g:'rgba(255,0,255,0.3)', rgb_m:{r:255,g:0,b:255}, rgb_l:{r:255,g:153,b:255}, rgb_d:{r:102,g:0,b:102} },
+   { name:'Topaz',    m:'#ffcc00', l:'#ffff99', d:'#666600', g:'rgba(255,204,0,0.3)', rgb_m:{r:255,g:204,b:0}, rgb_l:{r:255,g:255,b:153}, rgb_d:{r:102,g:102,b:0} },
+   { name:'Diamond',  m:'#00ffff', l:'#ccffff', d:'#009999', g:'rgba(0,255,255,0.3)', rgb_m:{r:0,g:255,b:255}, rgb_l:{r:204,g:255,b:255}, rgb_d:{r:0,g:153,b:153} },
+   { name:'Pearl',    m:'#ffffff', l:'#ffccff', d:'#999999', g:'rgba(255,255,255,0.3)', rgb_m:{r:255,g:255,b:255}, rgb_l:{r:255,g:204,b:255}, rgb_d:{r:153,g:153,b:153} },
+   { name:'Opal',     m:'#e0e0e0', l:'#a0d0ff', d:'#404080', g:'rgba(200,200,255,0.3)', rgb_m:{r:224,g:224,b:224}, rgb_l:{r:160,g:208,b:255}, rgb_d:{r:64,g:64,b:128} },
+
 ];
 
 // ─── DOM references ─────────────────────────────────────────────────────
@@ -504,73 +506,124 @@ function cellPos(col, row) {
 }
 
 // ─── Shading Calculation Helper ─────────────────────────────────────────
-function getFacetColor(colorObj, dx, dy, lightX, lightY) {
+function getFacetColorReal(colorObj, dx, dy, lightX, lightY, ambient = 0.04, specularIntensity = 0.85, shininess = 10) {
   const len = Math.sqrt(dx*dx + dy*dy);
-  if (len === 0) return colorObj.m;
-  const nx = dx / len;
-  const ny = dy / len;
+  const nx = len > 0 ? dx / len : 0;
+  const ny = len > 0 ? dy / len : 0;
+  
+  // Dot product of facet normal and dynamic orbiting light source
   const dot = nx * lightX + ny * lightY;
   
-  // Map dot product [-1, 1] to [0, 1]
-  const t = (dot + 1) / 2;
+  // Map dot product [-1, 1] to [0, 1] for diffuse
+  const diffuse = (dot + 1) / 2;
+  
+  // Specular glint on facets facing the light
+  let spec = 0;
+  if (dot > 0.65) {
+    spec = Math.pow((dot - 0.65) / 0.35, shininess) * specularIntensity;
+  }
+  
+  // Refractive fire/glow: opposite side facets catch internal color dispersion
+  let refraction = 0;
+  if (dot < -0.3) {
+    refraction = Math.pow((-dot - 0.3) / 0.7, 3.5) * 0.45;
+  }
 
   let r, g, b;
-  if (t < 0.5) {
-    const f = t * 2;
-    r = Math.round(colorObj.rgb_d.r + (colorObj.rgb_m.r - colorObj.rgb_d.r) * f);
-    g = Math.round(colorObj.rgb_d.g + (colorObj.rgb_m.g - colorObj.rgb_d.g) * f);
-    b = Math.round(colorObj.rgb_d.b + (colorObj.rgb_m.b - colorObj.rgb_d.b) * f);
+  if (diffuse < 0.5) {
+    const f = diffuse * 2;
+    r = colorObj.rgb_d.r + (colorObj.rgb_m.r - colorObj.rgb_d.r) * f;
+    g = colorObj.rgb_d.g + (colorObj.rgb_m.g - colorObj.rgb_d.g) * f;
+    b = colorObj.rgb_d.b + (colorObj.rgb_m.b - colorObj.rgb_d.b) * f;
   } else {
-    const f = (t - 0.5) * 2;
-    r = Math.round(colorObj.rgb_m.r + (colorObj.rgb_l.r - colorObj.rgb_m.r) * f);
-    g = Math.round(colorObj.rgb_m.g + (colorObj.rgb_l.g - colorObj.rgb_m.g) * f);
-    b = Math.round(colorObj.rgb_m.b + (colorObj.rgb_l.b - colorObj.rgb_m.b) * f);
+    const f = (diffuse - 0.5) * 2;
+    r = colorObj.rgb_m.r + (colorObj.rgb_l.r - colorObj.rgb_m.r) * f;
+    g = colorObj.rgb_m.g + (colorObj.rgb_l.g - colorObj.rgb_m.g) * f;
+    b = colorObj.rgb_m.b + (colorObj.rgb_l.b - colorObj.rgb_m.b) * f;
   }
+
+  // Blend internal refractive bloom (vibrant lighter color)
+  r = Math.min(255, r + refraction * colorObj.rgb_l.r * 1.2);
+  g = Math.min(255, g + refraction * colorObj.rgb_l.g * 1.2);
+  b = Math.min(255, b + refraction * colorObj.rgb_l.b * 1.2);
+
+  // Blend specular highlight (pure brilliant white)
+  r = Math.round(r + spec * (255 - r));
+  g = Math.round(g + spec * (255 - g));
+  b = Math.round(b + spec * (255 - b));
+
   return `rgb(${r},${g},${b})`;
 }
 
-// ─── Faceted Polygon Drawer ───
-function drawFacetedPolygon(cx, cy, r, innerScale, numSides, colorObj, lightX, lightY, startAngle = -Math.PI/2) {
-  const outer = [];
-  const inner = [];
-  for (let i = 0; i < numSides; i++) {
-    const a = (i / numSides) * Math.PI * 2 + startAngle;
-    outer.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
-    inner.push({ x: cx + r * innerScale * Math.cos(a), y: cy + r * innerScale * Math.sin(a) });
-  }
-
-  // Draw outer facets with orbital shading
-  for (let i = 0; i < numSides; i++) {
-    const next = (i + 1) % numSides;
-    const a = ((i + 0.5) / numSides) * Math.PI * 2 + startAngle;
-    const fx = Math.cos(a);
-    const fy = Math.sin(a);
-    
-    ctx.beginPath();
-    ctx.moveTo(outer[i].x, outer[i].y);
-    ctx.lineTo(outer[next].x, outer[next].y);
-    ctx.lineTo(inner[next].x, inner[next].y);
-    ctx.lineTo(inner[i].x, inner[i].y);
-    ctx.closePath();
-    ctx.fillStyle = getFacetColor(colorObj, fx, fy, lightX, lightY);
-    ctx.fill();
-  }
-
-  // Flat top table
-  ctx.beginPath();
-  ctx.moveTo(inner[0].x, inner[0].y);
-  inner.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-  ctx.closePath();
+// ─── Sparkle Glint Drawing Helper ───
+function drawGlint(cx, cy, size, rotation) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
   
-  const tableGrad = ctx.createRadialGradient(
-    cx + lightX * r * 0.28, cy + lightY * r * 0.28, 0,
-    cx, cy, r * innerScale
-  );
-  tableGrad.addColorStop(0, '#ffffff');
-  tableGrad.addColorStop(0.35, colorObj.l);
-  tableGrad.addColorStop(1, colorObj.m);
-  ctx.fillStyle = tableGrad;
+  // Double-pass star burst gradient
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.2, 'rgba(255, 255, 255, 0.8)');
+  grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
+  grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = grad;
+  
+  ctx.beginPath();
+  // Vertical Spike
+  ctx.moveTo(0, -size);
+  ctx.quadraticCurveTo(0, 0, size * 0.08, 0);
+  ctx.quadraticCurveTo(0, 0, 0, size);
+  ctx.quadraticCurveTo(0, 0, -size * 0.08, 0);
+  ctx.quadraticCurveTo(0, 0, 0, -size);
+  ctx.closePath();
   ctx.fill();
+
+  ctx.beginPath();
+  // Horizontal Spike
+  ctx.moveTo(-size, 0);
+  ctx.quadraticCurveTo(0, 0, 0, size * 0.08);
+  ctx.quadraticCurveTo(0, 0, size, 0);
+  ctx.quadraticCurveTo(0, 0, 0, -size * 0.08);
+  ctx.quadraticCurveTo(0, 0, -size, 0);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Brilliant inner core
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+// ─── Shape Helper Points generators ───
+function getCushionPoints(cx, cy, r, numPoints = 8) {
+  const pts = [];
+  for (let i = 0; i < numPoints; i++) {
+    const a = (i / numPoints) * Math.PI * 2 - Math.PI / 2;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const k = 0.65; // Cushion squareness factor
+    const factor = 1 / Math.max(Math.abs(cos), Math.abs(sin));
+    const rad = r * (1 - k + k * factor);
+    pts.push({ x: cx + rad * cos, y: cy + rad * sin, nx: cos, ny: sin });
+  }
+  return pts;
+}
+
+function getEmeraldPoints(cx, cy, rx, ry, bevelSize) {
+  return [
+    { x: cx - rx + bevelSize, y: cy - ry, nx: 0, ny: -1 },
+    { x: cx + rx - bevelSize, y: cy - ry, nx: 0, ny: -1 },
+    { x: cx + rx,             y: cy - ry + bevelSize, nx: 1, ny: -1 },
+    { x: cx + rx,             y: cy + ry - bevelSize, nx: 1, ny: 0 },
+    { x: cx + rx - bevelSize, y: cy + ry, nx: 1, ny: 1 },
+    { x: cx - rx + bevelSize, y: cy + ry, nx: 0, ny: 1 },
+    { x: cx - rx,             y: cy + ry - bevelSize, nx: -1, ny: 1 },
+    { x: cx - rx,             y: cy - ry + bevelSize, nx: -1, ny: 0 }
+  ];
 }
 
 // ─── Beautiful 3D Faceted Gem Rendering ──────────────────────────────────
@@ -580,239 +633,578 @@ function drawGem(cx, cy, r, type, alpha = 1, scale = 1, lightX = -0.4, lightY = 
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  // 1. Draw offset physical 3D drop shadow onto the slot beneath it
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-  ctx.shadowBlur = 8 * scale;
-  ctx.shadowOffsetX = 3.5 * scale;
-  ctx.shadowOffsetY = 4.5 * scale;
+  // 1. Draw smooth realistic 3D shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+  ctx.shadowBlur = 9 * scale;
+  ctx.shadowOffsetX = 4 * scale;
+  ctx.shadowOffsetY = 5 * scale;
 
-  // Base Silhouette Fill (to catch the drop shadow)
-  if (type !== 6) {
-    ctx.beginPath();
-    if (type === 2) {
-      // Teardrop path
-      ctx.moveTo(cx, cy - sr);
-      ctx.bezierCurveTo(cx - sr * 0.9, cy - sr * 0.3, cx - sr * 0.9, cy + sr * 0.6, cx, cy + sr);
-      ctx.bezierCurveTo(cx + sr * 0.9, cy + sr * 0.6, cx + sr * 0.9, cy - sr * 0.3, cx, cy - sr);
-    } else if (type === 5) {
-      // Diamond profile
-      ctx.moveTo(cx - sr * 0.7, cy - sr * 0.5);
-      ctx.lineTo(cx + sr * 0.7, cy - sr * 0.5);
-      ctx.lineTo(cx + sr * 0.95, cy - sr * 0.05);
-      ctx.lineTo(cx, cy + sr * 0.95);
-      ctx.lineTo(cx - sr * 0.95, cy - sr * 0.05);
-    } else {
-      octagonPath(cx, cy, sr);
+  // Draw base silhouette to catch drop shadow
+  ctx.beginPath();
+  if (type === 0 || type === 3 || type === 4) {
+    // Octagon base
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+      ctx.lineTo(cx + sr * Math.cos(a), cy + sr * Math.sin(a));
     }
-    ctx.closePath();
-    ctx.fillStyle = c.d;
-    ctx.fill();
+  } else if (type === 1) {
+    // Emerald bevel base
+    const pts = getEmeraldPoints(cx, cy, sr * 0.85, sr * 0.95, sr * 0.28);
+    pts.forEach((p, idx) => {
+      if (idx === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+  } else if (type === 2) {
+    // Trillion curved triangle base
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+      const nextA = ((i + 1) / 3) * Math.PI * 2 - Math.PI / 2;
+      const midA = a + Math.PI / 3;
+      if (i === 0) ctx.moveTo(cx + sr * Math.cos(a), cy + sr * Math.sin(a));
+      else ctx.lineTo(cx + sr * Math.cos(a), cy + sr * Math.sin(a));
+      ctx.quadraticCurveTo(cx + sr * 1.05 * Math.cos(midA), cy + sr * 1.05 * Math.sin(midA), cx + sr * Math.cos(nextA), cy + sr * Math.sin(nextA));
+    }
+  } else if (type === 5) {
+    // Diamond circular perimeter base
+    ctx.arc(cx, cy, sr, 0, Math.PI * 2);
+  } else {
+    // Spherical Cabochons (Pearl, Opal) base
+    ctx.arc(cx, cy, sr, 0, Math.PI * 2);
   }
+  ctx.closePath();
+  ctx.fillStyle = c.d;
+  ctx.fill();
 
-  // Clear shadow settings for precise facet rendering
+  // Clear shadow settings for precise face rendering
   ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
-  // 2. Draw Dynamic Facets based on Type
+  // 2. Render Facets/Gradients dynamically based on gemstone type
   if (type === 0) {
-    // ─── RUBY (Faceted Rhombus) ───
-    drawFacetedPolygon(cx, cy, sr, 0.4, 4, c, lightX, lightY, -Math.PI/2);
+    // ─── RUBY (Faceted Cushion Cut) ───
+    const outer = getCushionPoints(cx, cy, sr, 8);
+    const mid = getCushionPoints(cx, cy, sr * 0.72, 8);
+    const inner = getCushionPoints(cx, cy, sr * 0.44, 8);
 
-  } else if (type === 1) {
-    // ─── EMERALD (Emerald-Cut Rectangle) ───
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(0.88, 1.02);
-    drawFacetedPolygon(0, 0, sr, 0.52, 8, c, lightX, lightY, -Math.PI/8);
-    ctx.restore();
+    // Outer facets (8)
+    for (let i = 0; i < 8; i++) {
+      const next = (i + 1) % 8;
+      ctx.beginPath();
+      ctx.moveTo(outer[i].x, outer[i].y);
+      ctx.lineTo(outer[next].x, outer[next].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, outer[i].nx, outer[i].ny, lightX, lightY);
+      ctx.fill();
+    }
 
-  } else if (type === 2) {
-    // ─── SAPPHIRE (Faceted Triangle) ───
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(1.0, 0.9);
-    drawFacetedPolygon(0, 0, sr, 0.4, 3, c, lightX, lightY, -Math.PI/2);
-    ctx.restore();
+    // Mid facets (8)
+    for (let i = 0; i < 8; i++) {
+      const next = (i + 1) % 8;
+      ctx.beginPath();
+      ctx.moveTo(mid[i].x, mid[i].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(inner[next].x, inner[next].y);
+      ctx.lineTo(inner[i].x, inner[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, mid[i].nx * 0.8, mid[i].ny * 0.8, lightX, lightY);
+      ctx.fill();
+    }
 
-  } else if (type === 3) {
-    // ─── AMETHYST (Faceted Hexagon) ───
-    drawFacetedPolygon(cx, cy, sr, 0.46, 6, c, lightX, lightY, -Math.PI/2);
-
-  } else if (type === 4) {
-    // ─── TOPAZ (Elongated Cushion Kite) ───
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(0.85, 1.0);
-    drawFacetedPolygon(0, 0, sr, 0.45, 4, c, lightX, lightY, -Math.PI/2);
-    ctx.restore();
-
-  } else if (type === 5) {
-    // ─── DIAMOND (Classic Gemstone Crown Profile) ───
-    const points = [
-      { x: cx - sr * 0.7, y: cy - sr * 0.5 },
-      { x: cx + sr * 0.7, y: cy - sr * 0.5 },
-      { x: cx + sr * 0.95, y: cy - sr * 0.05 },
-      { x: cx, y: cy + sr * 0.95 },
-      { x: cx - sr * 0.95, y: cy - sr * 0.05 }
-    ];
-    const innerT1 = { x: cx - sr * 0.35, y: cy - sr * 0.15 };
-    const innerT2 = { x: cx + sr * 0.35, y: cy - sr * 0.15 };
-
-    // Upper Left Facet
+    // Table
     ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    ctx.lineTo(points[4].x, points[4].y);
-    ctx.lineTo(innerT1.x, innerT1.y);
+    ctx.moveTo(inner[0].x, inner[0].y);
+    for (let i = 1; i < 8; i++) ctx.lineTo(inner[i].x, inner[i].y);
     ctx.closePath();
-    ctx.fillStyle = getFacetColor(c, -1, -0.5, lightX, lightY);
-    ctx.fill();
 
-    // Upper Right Facet
-    ctx.beginPath();
-    ctx.moveTo(points[1].x, points[1].y);
-    ctx.lineTo(points[2].x, points[2].y);
-    ctx.lineTo(innerT2.x, innerT2.y);
-    ctx.closePath();
-    ctx.fillStyle = getFacetColor(c, 1, -0.5, lightX, lightY);
-    ctx.fill();
-
-    // Lower Left Pavilion Facet
-    ctx.beginPath();
-    ctx.moveTo(points[4].x, points[4].y);
-    ctx.lineTo(points[3].x, points[3].y);
-    ctx.lineTo(innerT1.x, innerT1.y);
-    ctx.closePath();
-    ctx.fillStyle = getFacetColor(c, -0.6, 1, lightX, lightY);
-    ctx.fill();
-
-    // Lower Right Pavilion Facet
-    ctx.beginPath();
-    ctx.moveTo(points[2].x, points[2].y);
-    ctx.lineTo(points[3].x, points[3].y);
-    ctx.lineTo(innerT2.x, innerT2.y);
-    ctx.closePath();
-    ctx.fillStyle = getFacetColor(c, 0.6, 1, lightX, lightY);
-    ctx.fill();
-
-    // Bottom Center Facet
-    ctx.beginPath();
-    ctx.moveTo(innerT1.x, innerT1.y);
-    ctx.lineTo(innerT2.x, innerT2.y);
-    ctx.lineTo(points[3].x, points[3].y);
-    ctx.closePath();
-    ctx.fillStyle = getFacetColor(c, 0, 1, lightX, lightY);
-    ctx.fill();
-
-    // Top Table Cap
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    ctx.lineTo(points[1].x, points[1].y);
-    ctx.lineTo(innerT2.x, innerT2.y);
-    ctx.lineTo(innerT1.x, innerT1.y);
-    ctx.closePath();
-    
-    const tableGrad = ctx.createLinearGradient(
-      cx - sr * 0.4, cy - sr * 0.5, 
-      cx + sr * 0.4, cy - sr * 0.15
-    );
+    const tableGrad = ctx.createRadialGradient(cx + lightX * sr * 0.25, cy + lightY * sr * 0.25, 0, cx, cy, sr * 0.44);
     tableGrad.addColorStop(0, '#ffffff');
     tableGrad.addColorStop(0.35, c.l);
     tableGrad.addColorStop(1, c.m);
     ctx.fillStyle = tableGrad;
     ctx.fill();
 
-    // Fine table divider line
-    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-    ctx.lineWidth = 1;
+  } else if (type === 1) {
+    // ─── EMERALD (Stepped Octagon Cut) ───
+    const outer = getEmeraldPoints(cx, cy, sr * 0.85, sr * 0.95, sr * 0.26);
+    const mid = getEmeraldPoints(cx, cy, sr * 0.62, sr * 0.70, sr * 0.18);
+    const inner = getEmeraldPoints(cx, cy, sr * 0.38, sr * 0.44, sr * 0.11);
+
+    // Outer step (8 facets)
+    for (let i = 0; i < 8; i++) {
+      const next = (i + 1) % 8;
+      ctx.beginPath();
+      ctx.moveTo(outer[i].x, outer[i].y);
+      ctx.lineTo(outer[next].x, outer[next].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, outer[i].nx, outer[i].ny, lightX, lightY);
+      ctx.fill();
+    }
+
+    // Inner step (8 facets)
+    for (let i = 0; i < 8; i++) {
+      const next = (i + 1) % 8;
+      ctx.beginPath();
+      ctx.moveTo(mid[i].x, mid[i].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(inner[next].x, inner[next].y);
+      ctx.lineTo(inner[i].x, inner[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, mid[i].nx * 0.7, mid[i].ny * 0.7, lightX, lightY);
+      ctx.fill();
+    }
+
+    // Table
     ctx.beginPath();
-    ctx.moveTo(innerT1.x, innerT1.y);
-    ctx.lineTo(innerT2.x, innerT2.y);
+    ctx.moveTo(inner[0].x, inner[0].y);
+    for (let i = 1; i < 8; i++) ctx.lineTo(inner[i].x, inner[i].y);
+    ctx.closePath();
+
+    const tableGrad = ctx.createLinearGradient(cx - sr * 0.3, cy - sr * 0.3, cx + sr * 0.3, cy + sr * 0.3);
+    tableGrad.addColorStop(0, '#ffffff');
+    tableGrad.addColorStop(0.3, c.l);
+    tableGrad.addColorStop(1, c.m);
+    ctx.fillStyle = tableGrad;
+    ctx.fill();
+
+  } else if (type === 2) {
+    // ─── SAPPHIRE (Modern Curved Trillion Cut) ───
+    const numSteps = 3;
+    const outer = [];
+    const mid = [];
+    const inner = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const isCorner = i % 2 === 0;
+      const radOuter = isCorner ? sr : sr * 0.88;
+      const radMid = isCorner ? sr * 0.68 : sr * 0.60;
+      const radInner = isCorner ? sr * 0.40 : sr * 0.35;
+      
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      outer.push({ x: cx + radOuter * cos, y: cy + radOuter * sin, nx: cos, ny: sin });
+      mid.push({ x: cx + radMid * cos, y: cy + radMid * sin, nx: cos, ny: sin });
+      inner.push({ x: cx + radInner * cos, y: cy + radInner * sin, nx: cos, ny: sin });
+    }
+
+    // Outer facets (6 triangles/quads)
+    for (let i = 0; i < 6; i++) {
+      const next = (i + 1) % 6;
+      ctx.beginPath();
+      ctx.moveTo(outer[i].x, outer[i].y);
+      ctx.lineTo(outer[next].x, outer[next].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, outer[i].nx, outer[i].ny, lightX, lightY);
+      ctx.fill();
+    }
+
+    // Inner facets (6 triangles/quads)
+    for (let i = 0; i < 6; i++) {
+      const next = (i + 1) % 6;
+      ctx.beginPath();
+      ctx.moveTo(mid[i].x, mid[i].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(inner[next].x, inner[next].y);
+      ctx.lineTo(inner[i].x, inner[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, mid[i].nx * 0.7, mid[i].ny * 0.7, lightX, lightY);
+      ctx.fill();
+    }
+
+    // Table
+    ctx.beginPath();
+    ctx.moveTo(inner[0].x, inner[0].y);
+    for (let i = 1; i < 6; i++) ctx.lineTo(inner[i].x, inner[i].y);
+    ctx.closePath();
+
+    const tableGrad = ctx.createRadialGradient(cx + lightX * sr * 0.22, cy + lightY * sr * 0.22, 0, cx, cy, sr * 0.38);
+    tableGrad.addColorStop(0, '#ffffff');
+    tableGrad.addColorStop(0.35, c.l);
+    tableGrad.addColorStop(1, c.m);
+    ctx.fillStyle = tableGrad;
+    ctx.fill();
+
+    // Internal star lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      ctx.moveTo(inner[i].x, inner[i].y);
+      ctx.lineTo(cx, cy);
+    }
     ctx.stroke();
 
+  } else if (type === 3) {
+    // ─── AMETHYST (Rose Hexagonal Brilliant) ───
+    const outer = [];
+    const mid = [];
+    const inner = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      outer.push({ x: cx + sr * cos, y: cy + sr * sin, nx: cos, ny: sin });
+      mid.push({ x: cx + sr * 0.72 * cos, y: cy + sr * 0.72 * sin, nx: cos, ny: sin });
+      inner.push({ x: cx + sr * 0.42 * cos, y: cy + sr * 0.42 * sin, nx: cos, ny: sin });
+    }
+
+    // Outer Ring (6 facets)
+    for (let i = 0; i < 6; i++) {
+      const next = (i + 1) % 6;
+      ctx.beginPath();
+      ctx.moveTo(outer[i].x, outer[i].y);
+      ctx.lineTo(outer[next].x, outer[next].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, outer[i].nx, outer[i].ny, lightX, lightY);
+      ctx.fill();
+    }
+
+    // Inner Ring (6 facets)
+    for (let i = 0; i < 6; i++) {
+      const next = (i + 1) % 6;
+      ctx.beginPath();
+      ctx.moveTo(mid[i].x, mid[i].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(inner[next].x, inner[next].y);
+      ctx.lineTo(inner[i].x, inner[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, mid[i].nx * 0.75, mid[i].ny * 0.75, lightX, lightY);
+      ctx.fill();
+    }
+
+    // Table
+    ctx.beginPath();
+    ctx.moveTo(inner[0].x, inner[0].y);
+    for (let i = 1; i < 6; i++) ctx.lineTo(inner[i].x, inner[i].y);
+    ctx.closePath();
+
+    const tableGrad = ctx.createRadialGradient(cx + lightX * sr * 0.25, cy + lightY * sr * 0.25, 0, cx, cy, sr * 0.42);
+    tableGrad.addColorStop(0, '#ffffff');
+    tableGrad.addColorStop(0.35, c.l);
+    tableGrad.addColorStop(1, c.m);
+    ctx.fillStyle = tableGrad;
+    ctx.fill();
+
+  } else if (type === 4) {
+    // ─── TOPAZ (Faceted Elongated Kite) ───
+    const outer = [];
+    const mid = [];
+    const inner = [];
+    const angles = [-Math.PI/2, 0, Math.PI/2, Math.PI];
+    for (let i = 0; i < 4; i++) {
+      const a = angles[i];
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      // Elongate bottom, compress sides
+      const lenOuter = i === 2 ? sr * 1.08 : (i === 0 ? sr * 0.90 : sr * 0.82);
+      const lenMid = lenOuter * 0.72;
+      const lenInner = lenOuter * 0.44;
+
+      outer.push({ x: cx + lenOuter * cos, y: cy + lenOuter * sin, nx: cos, ny: sin });
+      mid.push({ x: cx + lenMid * cos, y: cy + lenMid * sin, nx: cos, ny: sin });
+      inner.push({ x: cx + lenInner * cos, y: cy + lenInner * sin, nx: cos, ny: sin });
+    }
+
+    // Outer facets (4)
+    for (let i = 0; i < 4; i++) {
+      const next = (i + 1) % 4;
+      ctx.beginPath();
+      ctx.moveTo(outer[i].x, outer[i].y);
+      ctx.lineTo(outer[next].x, outer[next].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, outer[i].nx, outer[i].ny, lightX, lightY);
+      ctx.fill();
+    }
+
+    // Mid facets (4)
+    for (let i = 0; i < 4; i++) {
+      const next = (i + 1) % 4;
+      ctx.beginPath();
+      ctx.moveTo(mid[i].x, mid[i].y);
+      ctx.lineTo(mid[next].x, mid[next].y);
+      ctx.lineTo(inner[next].x, inner[next].y);
+      ctx.lineTo(inner[i].x, inner[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, mid[i].nx * 0.7, mid[i].ny * 0.7, lightX, lightY);
+      ctx.fill();
+    }
+
+    // Table
+    ctx.beginPath();
+    ctx.moveTo(inner[0].x, inner[0].y);
+    for (let i = 1; i < 4; i++) ctx.lineTo(inner[i].x, inner[i].y);
+    ctx.closePath();
+
+    const tableGrad = ctx.createRadialGradient(cx + lightX * sr * 0.25, cy + lightY * sr * 0.25, 0, cx, cy, sr * 0.44);
+    tableGrad.addColorStop(0, '#ffffff');
+    tableGrad.addColorStop(0.35, c.l);
+    tableGrad.addColorStop(1, c.m);
+    ctx.fillStyle = tableGrad;
+    ctx.fill();
+
+  } else if (type === 5) {
+    // ─── DIAMOND (Top-Down Round Brilliant Cut with 32 triangular facets) ───
+    const outer = [];
+    const mid = [];
+    const inner = [];
+    const numSides = 8;
+    for (let i = 0; i < numSides; i++) {
+      const a = (i / numSides) * Math.PI * 2 - Math.PI / 2;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      outer.push({ x: cx + sr * cos, y: cy + sr * sin, nx: cos, ny: sin });
+      mid.push({ x: cx + sr * 0.72 * Math.cos(a + Math.PI / numSides), y: cy + sr * 0.72 * Math.sin(a + Math.PI / numSides), nx: Math.cos(a + Math.PI / numSides), ny: Math.sin(a + Math.PI / numSides) });
+      inner.push({ x: cx + sr * 0.44 * cos, y: cy + sr * 0.44 * sin, nx: cos, ny: sin });
+    }
+
+    // Draw 32 triangular brilliant facets
+    for (let i = 0; i < numSides; i++) {
+      const next = (i + 1) % numSides;
+
+      // Outer bezel triangle 1
+      ctx.beginPath();
+      ctx.moveTo(outer[i].x, outer[i].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.lineTo(inner[i].x, inner[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, outer[i].nx * 0.9, outer[i].ny * 0.9, lightX, lightY, 0.05, 0.9, 14);
+      ctx.fill();
+
+      // Outer bezel triangle 2
+      ctx.beginPath();
+      ctx.moveTo(outer[next].x, outer[next].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.lineTo(inner[next].x, inner[next].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, outer[next].nx * 0.9, outer[next].ny * 0.9, lightX, lightY, 0.05, 0.9, 14);
+      ctx.fill();
+
+      // Outer rim triangle 3
+      ctx.beginPath();
+      ctx.moveTo(outer[i].x, outer[i].y);
+      ctx.lineTo(outer[next].x, outer[next].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, mid[i].nx, mid[i].ny, lightX, lightY, 0.05, 0.9, 14);
+      ctx.fill();
+
+      // Inner table star triangle 4
+      ctx.beginPath();
+      ctx.moveTo(inner[i].x, inner[i].y);
+      ctx.lineTo(inner[next].x, inner[next].y);
+      ctx.lineTo(mid[i].x, mid[i].y);
+      ctx.closePath();
+      ctx.fillStyle = getFacetColorReal(c, mid[i].nx * 0.6, mid[i].ny * 0.6, lightX, lightY, 0.05, 0.9, 14);
+      ctx.fill();
+    }
+
+    // Table
+    ctx.beginPath();
+    ctx.moveTo(inner[0].x, inner[0].y);
+    for (let i = 1; i < numSides; i++) ctx.lineTo(inner[i].x, inner[i].y);
+    ctx.closePath();
+
+    const tableGrad = ctx.createRadialGradient(cx + lightX * sr * 0.25, cy + lightY * sr * 0.25, 0, cx, cy, sr * 0.44);
+    tableGrad.addColorStop(0, '#ffffff');
+    tableGrad.addColorStop(0.3, c.l);
+    tableGrad.addColorStop(0.85, c.m);
+    tableGrad.addColorStop(1, c.d);
+    ctx.fillStyle = tableGrad;
+    ctx.fill();
+
   } else if (type === 6) {
-    // ─── PEARL (Highly Shimmering 3D Sphere) ───
-    const lx = lightX * sr * 0.42;
-    const ly = lightY * sr * 0.42;
+    // ─── PEARL (Ultra-Realistic Shimmering South-Sea Pearl) ───
+    const lx = lightX * sr * 0.40;
+    const ly = lightY * sr * 0.40;
 
-    ctx.shadowColor = 'rgba(253,121,168,0.4)';
-    ctx.shadowBlur = 12 * scale;
-
+    // 1. Lustrous pearlescent radial base
     ctx.beginPath();
     ctx.arc(cx, cy, sr, 0, Math.PI * 2);
-    const grad = ctx.createRadialGradient(
+    const baseGrad = ctx.createRadialGradient(
       cx + lx, cy + ly, sr * 0.05,
       cx + lx * 0.3, cy + ly * 0.3, sr * 1.05
     );
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.2, '#fde3ec');
-    grad.addColorStop(0.65, c.m);
-    grad.addColorStop(0.9, c.d);
-    grad.addColorStop(1, '#531024');
-    ctx.fillStyle = grad;
+    baseGrad.addColorStop(0, '#ffffff');
+    baseGrad.addColorStop(0.18, '#fffdf9');
+    baseGrad.addColorStop(0.48, '#f7dfeb'); // Rose/peach undertone
+    baseGrad.addColorStop(0.72, c.m);       // Primary pearl essence
+    baseGrad.addColorStop(0.94, c.d);       // Deep satin shadow
+    baseGrad.addColorStop(1, '#3b2f33');    // Ambient occlusion edge
+    ctx.fillStyle = baseGrad;
     ctx.fill();
 
-    ctx.shadowBlur = 0;
-
-    // Bottom bounce reflection
+    // 2. Iridescent pearlescent overlay (green/pink satin sheen)
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
     ctx.beginPath();
     ctx.arc(cx, cy, sr, 0, Math.PI * 2);
-    const glossGrad = ctx.createRadialGradient(
-      cx - lx * 0.7, cy - ly * 0.7, 0,
-      cx - lx * 0.7, cy - ly * 0.7, sr * 0.75
+    const sheenGrad = ctx.createRadialGradient(
+      cx - lx * 0.5, cy - ly * 0.5, 0,
+      cx, cy, sr
     );
-    glossGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
-    glossGrad.addColorStop(0.4, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = glossGrad;
+    sheenGrad.addColorStop(0, 'rgba(163,255,210,0.18)'); // soft lime iridescence
+    sheenGrad.addColorStop(0.5, 'rgba(255,178,218,0.12)'); // soft rose halo
+    sheenGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sheenGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // 3. Ground bounce reflection (bottom edge highlights)
+    ctx.beginPath();
+    ctx.arc(cx, cy, sr, 0, Math.PI * 2);
+    const bounceGrad = ctx.createRadialGradient(
+      cx - lx * 0.7, cy - ly * 0.7, 0,
+      cx - lx * 0.7, cy - ly * 0.7, sr * 0.8
+    );
+    bounceGrad.addColorStop(0, 'rgba(230, 240, 255, 0.32)');
+    bounceGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = bounceGrad;
     ctx.fill();
 
-    // Dynamic bright hotspot overlay
+    // 4. Sharp specular light-source hotspot
     ctx.beginPath();
-    ctx.arc(cx + lx * 0.88, cy + ly * 0.88, sr * 0.12, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.arc(cx + lx * 0.82, cy + ly * 0.82, sr * 0.11, 0, Math.PI * 2);
+    const specGrad = ctx.createRadialGradient(
+      cx + lx * 0.82, cy + ly * 0.82, 0,
+      cx + lx * 0.82, cy + ly * 0.82, sr * 0.11
+    );
+    specGrad.addColorStop(0, '#ffffff');
+    specGrad.addColorStop(0.5, 'rgba(255,255,255,0.8)');
+    specGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = specGrad;
+    ctx.fill();
+
+  } else if (type === 7) {
+    // ─── OPAL (Iridescent Cabochon Opal with shifting fire play-of-color) ───
+    ctx.beginPath();
+    ctx.arc(cx, cy, sr, 0, Math.PI * 2);
+    ctx.clip(); // Restrict play-of-color to opal body
+
+    // 1. Semi-translucent milky base
+    const bodyGrad = ctx.createRadialGradient(
+      cx - sr * 0.2, cy - sr * 0.2, 0,
+      cx, cy, sr
+    );
+    bodyGrad.addColorStop(0, '#ffffff');
+    bodyGrad.addColorStop(0.4, '#eef3fc'); // milky body
+    bodyGrad.addColorStop(0.8, '#d5e2f7'); // soft violet-blue
+    bodyGrad.addColorStop(1, '#a1b6d9');    // shadow rim
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+
+    // 2. Play-of-Color Fire Spots (6 internal color spots offset by light parallax)
+    const fireColors = [
+      'rgba(255,41,117,0.48)',  // magenta
+      'rgba(0,255,160,0.45)',  // lime/cyan
+      'rgba(255,190,0,0.45)',  // electric gold
+      'rgba(0,210,255,0.48)',  // neon blue
+      'rgba(255,90,0,0.45)',   // fire orange
+      'rgba(150,0,255,0.40)'   // electric indigo
+    ];
+
+    // Offset parallax factors simulating light refracting inside silica spheres
+    const pX = lightX * sr * 0.28;
+    const pY = lightY * sr * 0.28;
+
+    // Fixed spot coordinates inside, slightly offset dynamically
+    const spots = [
+      { x: cx - sr * 0.3 + pX,       y: cy - sr * 0.2 + pY,       r: sr * 0.25, c: fireColors[0] },
+      { x: cx + sr * 0.25 + pX * 0.5, y: cy - sr * 0.35 + pY * 0.5, r: sr * 0.22, c: fireColors[1] },
+      { x: cx + sr * 0.1 - pX * 0.8, y: cy + sr * 0.15 - pY * 0.8, r: sr * 0.30, c: fireColors[2] },
+      { x: cx - sr * 0.35 - pX * 0.4, y: cy + sr * 0.3 - pY * 0.4, r: sr * 0.24, c: fireColors[3] },
+      { x: cx + sr * 0.4 + pX * 0.7, y: cy + sr * 0.05 + pY * 0.7, r: sr * 0.18, c: fireColors[4] },
+      { x: cx - sr * 0.05 + pX * 0.2, y: cy - sr * 0.05 + pY * 0.2, r: sr * 0.28, c: fireColors[5] }
+    ];
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    spots.forEach(s => {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      const fireGrad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r);
+      fireGrad.addColorStop(0, s.c);
+      fireGrad.addColorStop(0.7, s.c.replace(/[\d\.]+\)$/, '0.15)'));
+      fireGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = fireGrad;
+      ctx.fill();
+    });
+    ctx.restore();
+
+    // 3. Polished glossy dome highlight overlay
+    ctx.beginPath();
+    ctx.arc(cx, cy, sr, 0, Math.PI * 2);
+    const domeGrad = ctx.createRadialGradient(
+      cx + lightX * sr * 0.35, cy + lightY * sr * 0.35, 0,
+      cx + lightX * sr * 0.2, cy + lightY * sr * 0.2, sr * 1.05
+    );
+    domeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+    domeGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.2)');
+    domeGrad.addColorStop(0.65, 'rgba(255, 255, 255, 0)');
+    domeGrad.addColorStop(0.9, 'rgba(255, 255, 255, 0.05)');
+    domeGrad.addColorStop(1, 'rgba(255, 255, 255, 0.22)');
+    ctx.fillStyle = domeGrad;
+    ctx.fill();
+
+    // Hotspot light reflection
+    ctx.beginPath();
+    ctx.arc(cx + lightX * sr * 0.7, cy + lightY * sr * 0.7, sr * 0.1, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
     ctx.fill();
   }
 
-  // Draw super-fine outline to keep shapes beautifully crisp
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  // Draw super-fine crystalline outer edge to make facets pop beautifully
+  ctx.restore(); // Exit clipped state for Opal, resets globalAlpha
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
   ctx.lineWidth = 0.8;
+  ctx.beginPath();
   if (type === 0 || type === 3 || type === 4) {
     ctx.stroke(octagon(cx, cy, sr));
   } else if (type === 1) {
-    ctx.beginPath();
-    const w = sr * 0.85;
-    const h = sr * 0.95;
-    const cut = sr * 0.3;
-    ctx.moveTo(cx - w + cut, cy - h);
-    ctx.lineTo(cx + w - cut, cy - h);
-    ctx.lineTo(cx + w, cy - h + cut);
-    ctx.lineTo(cx + w, cy + h - cut);
-    ctx.lineTo(cx + w - cut, cy + h);
-    ctx.lineTo(cx - w + cut, cy + h);
-    ctx.lineTo(cx - w, cy + h - cut);
-    ctx.lineTo(cx - w, cy - h + cut);
+    const pts = getEmeraldPoints(cx, cy, sr * 0.85, sr * 0.95, sr * 0.26);
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < 8; i++) ctx.lineTo(pts[i].x, pts[i].y);
     ctx.closePath();
     ctx.stroke();
   } else if (type === 2) {
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - sr);
-    ctx.bezierCurveTo(cx - sr * 0.9, cy - sr * 0.3, cx - sr * 0.9, cy + sr * 0.6, cx, cy + sr);
-    ctx.bezierCurveTo(cx + sr * 0.9, cy + sr * 0.6, cx + sr * 0.9, cy - sr * 0.3, cx, cy - sr);
-    ctx.closePath();
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
+      const nextA = ((i + 1) / 3) * Math.PI * 2 - Math.PI / 2;
+      const midA = a + Math.PI / 3;
+      ctx.moveTo(cx + sr * Math.cos(a), cy + sr * Math.sin(a));
+      ctx.quadraticCurveTo(cx + sr * 1.05 * Math.cos(midA), cy + sr * 1.05 * Math.sin(midA), cx + sr * Math.cos(nextA), cy + sr * Math.sin(nextA));
+    }
     ctx.stroke();
-  } else if (type === 5) {
-    ctx.beginPath();
-    ctx.moveTo(cx - sr * 0.7, cy - sr * 0.5);
-    ctx.lineTo(cx + sr * 0.7, cy - sr * 0.5);
-    ctx.lineTo(cx + sr * 0.95, cy - sr * 0.05);
-    ctx.lineTo(cx, cy + sr * 0.95);
-    ctx.lineTo(cx - sr * 0.95, cy - sr * 0.05);
-    ctx.closePath();
-    ctx.stroke();
-  } else if (type === 6) {
-    ctx.beginPath();
+  } else {
     ctx.arc(cx, cy, sr, 0, Math.PI * 2);
     ctx.stroke();
+  }
+
+  // 3. Spontaneous High-Gloss Specular Sparkle Effect (using unique seed)
+  const seed = cx * 13 + cy * 37;
+  const sparkleCycle = (pulseTime * 0.8 + (seed % 100) * 0.04) % 6; // Sparkle every 6 seconds
+  if (sparkleCycle < 0.6) {
+    let size;
+    if (sparkleCycle < 0.3) {
+      size = (sparkleCycle / 0.3) * 11.5; // grow
+    } else {
+      size = (1 - (sparkleCycle - 0.3) / 0.3) * 11.5; // shrink
+    }
+    // Positioning glint at the dynamic light direction corner of the gem
+    const gx = cx + lightX * sr * 0.75;
+    const gy = cy + lightY * sr * 0.75;
+    drawGlint(gx, gy, size * scale, sparkleCycle * 3);
   }
 
   ctx.restore();
@@ -1028,7 +1420,7 @@ function updateLevelProgress() {
   progressBarEl.style.width = `${progressPercent}%`;
   levelLabelEl.textContent = `LEVEL ${level}`;
   
-  if (progressPercent >= 100) {
+  if (progressPercent >= 100 && level < 100) {
     levelUp();
   }
 }
@@ -1043,13 +1435,11 @@ function levelUp() {
   
   const boardWrap = document.getElementById('board-wrap');
   
-  // Grand 3D Tilt and Pop Upward celebration!
   boardWrap.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.4s, box-shadow 0.4s';
   boardWrap.style.transform = 'perspective(1000px) rotateX(15deg) translateZ(35px) scale(1.05)';
   boardWrap.style.borderColor = '#fff3a0';
   boardWrap.style.boxShadow = '0 30px 60px rgba(247,224,94,0.4), 0 0 100px rgba(247,224,94,0.2)';
   
-  // Burst 40 spectacular spinning star particles from the center!
   for (let i = 0; i < 40; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 110 + Math.random() * 320;
@@ -1066,21 +1456,21 @@ function levelUp() {
       spin: (Math.random() > 0.5 ? 1 : -1) * (5 + Math.random() * 8)
     });
   }
-
+  
   setTimeout(() => {
     boardWrap.style.transform = '';
     boardWrap.style.borderColor = '';
     boardWrap.style.boxShadow = '';
     setTimeout(() => {
-      boardWrap.style.transition = ''; // Restore tilt mouse control
+      boardWrap.style.transition = '';
     }, 400);
   }, 1200);
   
-  // Award bonus points
   score += 500 * (level - 1);
   updateScore();
   updateLevelProgress();
 }
+
 
 function updateScore() {
   scoreEl.textContent = score;

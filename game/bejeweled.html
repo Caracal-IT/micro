@@ -288,9 +288,9 @@ const COLORS = [
    { name:'Sapphire', m:'#0000ff', l:'#9999ff', d:'#000066', g:'rgba(0,0,255,0.3)', rgb_m:{r:0,g:0,b:255}, rgb_l:{r:153,g:153,b:255}, rgb_d:{r:0,g:0,b:102} },
    { name:'Amethyst', m:'#ff00ff', l:'#ff99ff', d:'#660066', g:'rgba(255,0,255,0.3)', rgb_m:{r:255,g:0,b:255}, rgb_l:{r:255,g:153,b:255}, rgb_d:{r:102,g:0,b:102} },
    { name:'Topaz',    m:'#ffcc00', l:'#ffff99', d:'#666600', g:'rgba(255,204,0,0.3)', rgb_m:{r:255,g:204,b:0}, rgb_l:{r:255,g:255,b:153}, rgb_d:{r:102,g:102,b:0} },
-   { name:'Diamond',  m:'#00ffff', l:'#ccffff', d:'#009999', g:'rgba(0,255,255,0.3)', rgb_m:{r:0,g:255,b:255}, rgb_l:{r:204,g:255,b:255}, rgb_d:{r:0,g:153,b:153} },
+   { name:'Diamond',  m:'#ff8800', l:'#ffbb66', d:'#884400', g:'rgba(255,136,0,0.3)', rgb_m:{r:255,g:136,b:0}, rgb_l:{r:255,g:187,b:102}, rgb_d:{r:136,g:68,b:0} },
    { name:'Pearl',    m:'#ffffff', l:'#ffccff', d:'#999999', g:'rgba(255,255,255,0.3)', rgb_m:{r:255,g:255,b:255}, rgb_l:{r:255,g:204,b:255}, rgb_d:{r:153,g:153,b:153} },
-   { name:'Opal',     m:'#e0e0e0', l:'#a0d0ff', d:'#404080', g:'rgba(200,200,255,0.3)', rgb_m:{r:224,g:224,b:224}, rgb_l:{r:160,g:208,b:255}, rgb_d:{r:64,g:64,b:128} },
+   { name:'Opal',     m:'#008080', l:'#40e0d0', d:'#003333', g:'rgba(0,220,200,0.35)', rgb_m:{r:0,g:128,b:128}, rgb_l:{r:64,g:224,b:208}, rgb_d:{r:0,g:51,b:51} },
 
 ];
 
@@ -1090,15 +1090,15 @@ function drawGem(cx, cy, r, type, alpha = 1, scale = 1, lightX = -0.4, lightY = 
     ctx.arc(cx, cy, sr, 0, Math.PI * 2);
     ctx.clip(); // Restrict play-of-color to opal body
 
-    // 1. Semi-translucent milky base
+    // 1. Translucent body base using gem color
     const bodyGrad = ctx.createRadialGradient(
       cx - sr * 0.2, cy - sr * 0.2, 0,
       cx, cy, sr
     );
-    bodyGrad.addColorStop(0, '#ffffff');
-    bodyGrad.addColorStop(0.4, '#eef3fc'); // milky body
-    bodyGrad.addColorStop(0.8, '#d5e2f7'); // soft violet-blue
-    bodyGrad.addColorStop(1, '#a1b6d9');    // shadow rim
+    bodyGrad.addColorStop(0, c.l);
+    bodyGrad.addColorStop(0.4, c.m);
+    bodyGrad.addColorStop(0.8, '#2a6b7a');
+    bodyGrad.addColorStop(1, c.d);
     ctx.fillStyle = bodyGrad;
     ctx.fill();
 
@@ -1236,7 +1236,7 @@ let boardState = 'idle'; // idle | selected | animating
 let selRow = -1, selCol = -1;
 let score = 0;
 let level = 1;
-let highScore = localStorage.getItem('bejeweled_high_score') || 0;
+let highScore = Number(localStorage.getItem('bejeweled_high_score')) || 0;
 highScoreEl.textContent = highScore;
 
 let particles = [];
@@ -1246,7 +1246,24 @@ let floatTexts = [];
 let swapAnim = null;
 let removeAnim = null;
 let gravityAnim = null;
+let resetAnim = null;
 let pulseTime = 0;
+
+function animateReset(dur = 400) {
+  return new Promise(resolve => {
+    resetAnim = { t: 0, dur, resolve };
+  });
+}
+
+function animateDropIn() {
+  const moves = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      moves.push({ fromRow: -(c + 1), col: c, toRow: r, isNew: true });
+    }
+  }
+  return animateGravity(moves, 600);
+}
 
 function createBoard() {
   board = [];
@@ -1322,6 +1339,14 @@ function hasValidMoves() {
   return false;
 }
 
+function easeOutBounce(t) {
+  const n1 = 7.5625, d1 = 2.75;
+  if (t < 1 / d1) return n1 * t * t;
+  if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
+  if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
+  return n1 * (t -= 2.625 / d1) * t + 0.984375;
+}
+
 // ─── Particles & Floating Text ─────────────────────────────────────────
 function spawnParticles(row, col, type) {
   const pos = cellPos(col, row);
@@ -1375,7 +1400,7 @@ function animateRemove(matches, dur = 320) {
   });
 }
 
-function animateGravity(moves, dur = 180) {
+function animateGravity(moves, dur = 420) {
   return new Promise(resolve => {
     gravityAnim = { moves, t: 0, dur, resolve };
   });
@@ -1490,57 +1515,63 @@ async function trySwap(r1, c1, r2, c2) {
   if (boardState === 'animating') return;
   boardState = 'animating';
 
-  Sound.playSwap();
+  try {
+    Sound.playSwap();
 
-  // Swap animation
-  await animateSwap(r1, c1, r2, c2);
+    // Swap animation
+    await animateSwap(r1, c1, r2, c2);
 
-  // Perform swap in board array
-  [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+    // Perform swap in board array
+    [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
 
-  let matches = findMatches();
-  if (matches.length) {
-    let combo = 1;
-    while (matches.length) {
-      await sleep(60);
-      
-      const pts = calcScore(matches, combo);
-      Sound.playMatch(combo);
+    let matches = findMatches();
+    if (matches.length) {
+      let combo = 1;
+      while (matches.length) {
+        await sleep(60);
+        
+        const pts = calcScore(matches, combo);
+        Sound.playMatch(combo);
 
-      // Spawn floating numbers
-      const mid = matches[Math.floor(matches.length / 2)];
-      spawnFloatText(mid.row, mid.col, pts);
+        // Spawn floating numbers
+        const mid = matches[Math.floor(matches.length / 2)];
+        spawnFloatText(mid.row, mid.col, pts);
 
-      score += pts;
-      updateScore();
-      updateLevelProgress();
+        score += pts;
+        updateScore();
+        updateLevelProgress();
 
-      // Explode matches animation
-      await animateRemove(matches);
+        // Explode matches animation
+        await animateRemove(matches);
 
-      // Apply falling gems
-      const moves = applyGravity();
-      if (moves.length) {
-        await animateGravity(moves);
+        // Apply falling gems
+        const moves = applyGravity();
+        if (moves.length) {
+          await animateGravity(moves);
+        }
+
+        // Check cascading matches
+        matches = findMatches();
+        combo++;
       }
 
-      // Check cascading matches
-      matches = findMatches();
-      combo++;
+      // Verify board has moves
+      if (!hasValidMoves()) {
+        msgEl.textContent = '✦ NO MOVES — SHUFFLING ✦';
+        Sound.playShuffle();
+        await sleep(500);
+        await animateReset(350);
+        shuffleBoard();
+        await animateDropIn();
+        msgEl.textContent = '';
+      }
+    } else {
+      // Swap back if no match was found
+      await animateSwap(r2, c2, r1, c1);
+      [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
     }
-
-    // Verify board has moves
-    if (!hasValidMoves()) {
-      msgEl.textContent = '✦ NO MOVES — SHUFFLING ✦';
-      Sound.playShuffle();
-      await sleep(700);
-      shuffleBoard();
-      msgEl.textContent = '';
-    }
-  } else {
-    // Swap back if no match was found
-    await animateSwap(r2, c2, r1, c1);
-    [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+  } catch (e) {
+    console.error('Swap error:', e);
   }
 
   selRow = selCol = -1;
@@ -1548,29 +1579,39 @@ async function trySwap(r1, c1, r2, c2) {
 }
 
 function shuffleBoard() {
-  const types = [];
-  for (let r = 0; r < ROWS; r++)
-    for (let c = 0; c < COLS; c++)
-      types.push(board[r][c]);
+  let attempts = 0;
+  do {
+    const types = [];
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        types.push(board[r][c]);
 
-  for (let i = types.length - 1; i > 0; i--) {
-    const j = rand(i + 1);
-    [types[i], types[j]] = [types[j], types[i]];
-  }
-
-  let idx = 0;
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      board[r][c] = types[idx++];
+    for (let i = types.length - 1; i > 0; i--) {
+      const j = rand(i + 1);
+      [types[i], types[j]] = [types[j], types[i]];
     }
-  }
 
-  let m = findMatches();
-  while (m.length) {
-    for (const mm of m) {
-      board[mm.row][mm.col] = rand(COLORS.length);
+    let idx = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        board[r][c] = types[idx++];
+      }
     }
-    m = findMatches();
+
+    let m = findMatches();
+    let sanity = 0;
+    while (m.length && sanity < 100) {
+      for (const mm of m) {
+        board[mm.row][mm.col] = rand(COLORS.length);
+      }
+      m = findMatches();
+      sanity++;
+    }
+    attempts++;
+  } while (!hasValidMoves() && attempts < 50);
+  // fallback: rebuild entire board if still no moves
+  if (!hasValidMoves()) {
+    createBoard();
   }
 }
 
@@ -1649,21 +1690,42 @@ function render(time) {
       // Smooth gravity falling positioning
       if (gravityAnim) {
         const g = gravityAnim;
+        const t = g.t;
         for (const mv of g.moves) {
           if (mv.col === col && mv.toRow === row) {
             const fromPos = cellPos(col, mv.fromRow);
-            cy = fromPos.y + GEM_SIZE / 2 + (cy - (fromPos.y + GEM_SIZE / 2)) * g.t;
             if (mv.isNew) {
-              alpha = Math.min(1, g.t * 3);
+              const bt = easeOutBounce(t);
+              const fromY = fromPos.y + GEM_SIZE / 2;
+              const toY = cy;
+              cy = fromY + (toY - fromY) * bt;
+              // landing glow ring
+              if (t > 0.7 && t < 1) {
+                const ringAlpha = (t - 0.7) / 0.3;
+                ctx.save();
+                ctx.globalAlpha = (1 - ringAlpha) * 0.5;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5 + ringAlpha * 3;
+                ctx.shadowColor = 'rgba(255,255,255,0.6)';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * (0.7 + ringAlpha * 0.4), 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+              }
+            } else {
+              cy = fromPos.y + GEM_SIZE / 2 + (cy - (fromPos.y + GEM_SIZE / 2)) * t;
             }
           }
         }
       }
 
-      // Smooth burst scaling on match removal
-      if (removeAnim) {
-        alpha = 1 - removeAnim.t;
-        scale = 1 + removeAnim.t * 0.25;
+
+      // Reset fadeout
+      if (resetAnim) {
+        const ft = resetAnim.t;
+        alpha *= (1 - ft);
+        scale *= (0.5 + 0.5 * (1 - ft));
       }
 
       drawGem(cx, cy, r, type, alpha, scale, lightX, lightY);
@@ -1771,6 +1833,16 @@ function update(dt) {
     }
   }
 
+  // Reset fadeout
+  if (resetAnim) {
+    resetAnim.t = Math.min(1, resetAnim.t + dt * (1 / (resetAnim.dur / 1000)));
+    if (resetAnim.t >= 1) {
+      const r = resetAnim;
+      resetAnim = null;
+      r.resolve();
+    }
+  }
+
   // Particle physics with spin rate
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
@@ -1815,7 +1887,7 @@ function getGemFromClick(e) {
   return { row, col };
 }
 
-canvas.addEventListener('click', e => {
+function handleInput(e) {
   const g = getGemFromClick(e);
   if (!g || boardState === 'animating') return;
 
@@ -1849,11 +1921,13 @@ canvas.addEventListener('click', e => {
     selCol = col;
     boardState = 'selected';
   }
-});
+}
+
+canvas.addEventListener('pointerdown', handleInput);
 
 // ─── Game resets ────────────────────────────────────────────────────────
-function resetGame() {
-  boardState = 'idle';
+async function resetGame() {
+  boardState = 'animating';
   selRow = selCol = -1;
   score = 0;
   level = 1;
@@ -1862,14 +1936,23 @@ function resetGame() {
   swapAnim = null;
   removeAnim = null;
   gravityAnim = null;
+  resetAnim = null;
+  msgEl.textContent = '';
+
   updateScore();
   updateLevelProgress();
-  msgEl.textContent = '';
+
+  // Fade out current gems
+  await animateReset(400);
+
+  // Create fresh board
   createBoard();
   if (!hasValidMoves()) {
     shuffleBoard();
   }
-  Sound.playLevelUp(); // Startup fanfare
+
+  boardState = 'idle';
+  Sound.playLevelUp();
 }
 
 document.getElementById('reset-btn').addEventListener('click', () => {
@@ -1881,7 +1964,12 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 const wrapper = document.getElementById('game-wrapper');
 
 // ─── Initialization ─────────────────────────────────────────────────────
-resetGame();
+createBoard();
+if (!hasValidMoves()) {
+  shuffleBoard();
+}
+boardState = 'idle';
+Sound.playLevelUp();
 requestAnimationFrame(loop);
 </script>
 </body>

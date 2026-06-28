@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gems</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0a0a1a }
+
+#ui-bar { display:flex; justify-content:space-between; align-items:center; padding:14px 24px; width:100%; background:rgba(255,255,255,0.06); backdrop-filter:blur(20px) saturate(180%); border-radius:16px; margin-bottom:18px; box-shadow:0 4px 30px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08) }
+#ui-bar h1 { font-size:24px; color:#fff; letter-spacing:3px; text-shadow:0 0 24px rgba(100,180,255,0.6) }
+.score-box { display:flex; gap:32px } .stat-label { font-size:10px; color:#777; text-transform:uppercase; letter-spacing:2px } .stat-value { font-size:24px; font-weight:800; color:#fff; transition:transform 0.3s ease }
+
+#combo-display { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0); font-size:42px; font-weight:900; color:#fff; text-shadow:0 0 30px rgba(255,80,80,0.9),0 0 60px rgba(255,80,80,0.3); pointer-events:none;z-index:100;transition:transform .25s ease-out }
+#combo-display.show { animation: combo-pop 0.7s cubic-bezier(.2,.9,.4,1) forwards }
+@keyframes combo-pop{0%{transform:translate(-50%,-50%) scale(0)}25%{transform:translate(-50%,-50%) scale(1.4)}75%{transform:translate(-50%,-50%) scale(1)}100%{transform:translate(-50%,-50%) scale(0.9) opacity:0}}
+
+.board-wrapper { position:relative;border-radius:20px;padding:8px;background:linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03));box-shadow:0 12px 40px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.08) }
+.board { display:grid; grid-template-columns:repeat(8,64px); grid-template-rows:repeat(8,64px); gap:3px }
+
+.gem-wrapper{width:64px;height:64px;position:relative;cursor:pointer;user-select:none;-webkit-user-drag:none;border-radius:12px}
+.gem-wrapper.can-move { animation:pulse 1.2s ease-in-out infinite }
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+
+.gem-wrapper.selected { filter:brightness(1.4) drop-shadow(0 0 10px rgba(255,255,255,0.7)) }
+@keyframes gem-explode{0%{transform:scale(1);opacity:1}60%{transform:scale(1.3)}100%{transform:scale(0);opacity:0}}
+.gem-wrapper.match-anim { animation:gem-explode 0.4s ease forwards }
+
+.sparkle { position:absolute;width:2px;height:3px;border-radius:50%;background:#fff;pointer-events:none;z-index:10;animation:sparkle-fly .8s ease forwards }
+@keyframes sparkle-fly{0%{opacity:1;transform:translate(0,0) scale(1)}60%{opacity:1;transform:translate(var(--dx),var(--dy)) scale(2.5)}100%{opacity:0;transform:translate(calc(var(--dx)*3),calc(var(--dy)*4)) scale(0)}}
+
+#message-overlay { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .4s ease }
+#message-overlay.show { opacity:1; pointer-events:auto }
+.message-box { background:linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04));backdrop-filter:blur(20px);border-radius:24px;padding:36px 48px;text-align:center;color:#fff;box-shadow:0 24px 64px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1) }
+.message-box h2 { font-size:28px;margin-bottom:14px;letter-spacing:2px } .message-box p{color:#aaa;margin-bottom:24px;line-height:1.7}
+.btn-primary { padding:13px 36px;border:none;border-radius:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:15px;cursor:pointer;transition:.2s;letter-spacing:1px } .btn-primary:hover{transform:scale(1.06)}
+
+#swipe-hint { position:fixed;bottom:28px;left:50%;transform:translateX(-50%);color:#555;font-size:12px;pointer-events:none;transition:opacity .4s }
+</style>
+</head>
+<body>
+<div class="game-container">
+  <div id="ui-bar"><h1>GEMS</h1><div class="score-box"><span class="stat-label">Score</span><span class="stat-value" id="score">0</span><span class="stat-label">Best</span><span class="stat-value" id="best">0</span></div></div>
+  <div id="combo-display"></div>
+  <div class="board-wrapper"><div class="board" id="board"></div></div>
+  <div id="swipe-hint">Click adjacent same-color gems to swap</div>
+</div>
+<div id="message-overlay">
+  <div class="message-box"><h2>Gems</h2><p>Match 3+ gems in a row to score<br>Swap by clicking two adjacent gems of the same color</p><button class="btn-primary" id="start-btn">PLAY</button></div>
+</div>
+
+<script>
+const COLS=8,ROWS=8;
+// Gem type definitions: name and available colors (variants)
+const GEM_TYPES=[
+  {name:'diamond',colors:['#4dc0ff','#6ec6ff','#7ab3ff']},
+  {name:'ruby',colors:['#e74c3c','#d35148','#b52b2b']},
+  {name:'emerald',colors:['#2ecc71','#27ae60','#1e9c49']},
+  {name:'sapphire',colors:['#5dade2','#3498db','#2980b9']},
+  {name:'amethyst',colors:['#9b59b6','#8e44ad','#7d3c98']},
+  {name:'topaz',colors:['#f1c40f','#f39c12','#e67e22']}
+];
+
+let gridType=[],gridFace=[]; // type strings and DOM face elements
+let selectedGem=null,isProcessing=false,score=0,comboMult=1;
+let bestScore=parseInt(localStorage.getItem('bejeweled-best')||'0',10);
+
+const boardEl=document.getElementById('board'),scoreEl=document.getElementById('score'),bestEl=document.getElementById('best');
+const comboEl=document.getElementById('combo-display'),msgOverlay=document.getElementById('message-overlay'),startBtn=document.getElementById('start-btn');
+
+// ── Create a faceted polished gem face ───────────────────
+function createGemFace(type,variant){
+  const el=document.createElement('div');
+  // Diamond shape via clip-path polygon (rotated square)
+  el.style.cssText='width:48px;height:48px;clip-path:polygon(0 12%,15% 0,33% 6%,67% 0,85% 6%,100% 12%,100% 33%,85% 38%,67% 44%,33% 38%,15% 44%,0 33%,0 12%)';
+  el.style.position='relative;background:transparent;transition:filter .2s ease,transform .25s ease';
+
+  const colors=GEM_TYPES[type].colors;
+  const baseColor=colors[variant];
+
+  // Multi-layered radial gradient for polished gem look
+  el.style.background=`radial-gradient(circle at 40% 35%,${baseColor} 0%,${darken(baseColor,.2)} 65%,${darken(baseColor,.38)} 100%)`;
+
+  // Primary top-left highlight (main sparkle) + secondary highlights
+  el.style.backgroundImage=`radial-gradient(circle at 45% 28%,rgba(255,255,255,0.65) 0%,rgba(255,255,255,0.35) 30%,transparent 55%),
+    radial-gradient(circle at 15% 45%,rgba(255,255,255,0.3) 0%,transparent 50%),
+    radial-gradient(circle at 85% 60%,rgba(255,255,255,0.18) 0%,transparent 45%)`;
+
+  // Inset facet shadows for depth
+  el.style.boxShadow=`inset 2px 2px 4px rgba(255,255,255,0.3),
+    inset -2px -2px 4px ${darken(baseColor,.15)},
+    inset 1px 1px 3px ${baseColor}`;
+
+  // Specular reflection spots on facets (small bright highlights)
+  for(let i=0;i<4;i++){
+    const s=document.createElement('div');
+    const angle=i*90, offset=(i%2===0?8:5), dist=(i%2===0?14:7);
+    s.style.cssText='position:absolute;width:'+dist+'px;height:'+dist+'px;border-radius:50%;' +
+      'top:'+(30+i*6)+'%; left:'+(offset+i*5)+'%; transform:rotate(${angle}deg)';
+    s.style.background=`radial-gradient(circle at 40% 35%,rgba(255,255,255,${0.7-i*0.15}) 0%,transparent 60%)`;
+    s.style.filter='blur('+((i+1)*.8)+'px)';
+    el.appendChild(s);
+  }
+
+  // Outer glow (ambient light reflection on gem edge)
+  const glow=document.createElement('div');
+  glow.style.cssText='position:absolute;width:48px;height:48px;top:-2px;left:-2px;clip-path:polygon(0 12%,15% 0,33% 6%,67% 0,85% 6%,100% 12%,100% 33%,85% 38%,67% 44%,33% 38%,15% 44%,0 33%,0 12%)';
+  glow.style.background=`radial-gradient(circle at 40% 35%,rgba(255,255,255,0.2) 0%,transparent 60%)`;
+  glow.style.filter='blur(8px)';
+  el.appendChild(glow);
+
+  // Unique per-gem facet rotation for realistic look
+  const rotX=Math.random()*18-9,rotY=Math.random()*12-6;
+  el.style.transform=`perspective(400px) rotateX(${rotX}deg) rotateY(${rotY}deg)`;
+  return el;
+}
+
+function darken(hex,amt){
+  const r=parseInt(hex.substr(1,2),16),g=parseInt(hex.substr(3,2),16),b=parseInt(hex.substr(5,2),16);
+  return`rgb(${Math.max(0,r*(1-amt))},${Math.max(0,g*(1-amt))},${Math.min(255,b+(255*b*amt/255))})`;
+}
+
+// ── Board creation ──────────────────────────────────────
+function createBoard(){
+  boardEl.innerHTML='';
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const cell=document.createElement('div');
+    cell.className='gem-wrapper'; cell.dataset.r=r; cell.dataset.c=c;
+    gridFace[r*COLS+c]=createGemFace('',0); // placeholder face
+    boardEl.appendChild(cell);
+    gridType[r][c]=''; // no type yet
+  }
+}
+
+// ── Place a gem (type + variant) at position ────────────
+function placeGem(r,c,type,variant){
+  const cell=boardEl.children[r*COLS+c];
+  cell.innerHTML='';
+  cell.appendChild(createGemFace(type,variant));
+  gridType[r*COLS+c]=type;
+}
+
+// ── Pick a safe variant for a gem type (no immediate match with neighbors) ──
+function pickSafeVariant(type){
+  const colors=GEM_TYPES[type].colors;
+  let variant=Math.floor(Math.random()*colors.length);
+
+  // Ensure this variant doesn't create an immediate match with existing neighbors of same type
+  while(variant<3){
+    let safe=true;
+    for(let dr=-1;dr<=1&&safe;dr++)for(let dc=-1;dc<=1&&safe;dc++){
+      if(dr===0&&dc===0)continue;
+      const nr=r+dr,nc=c+dc; // will be set before this call
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS && gridType[nr][nc]===type){ safe=false;break;}
+    }
+    if(safe) break; variant++;
+  }
+
+  // If no safe variant found (shouldn't happen with 3 options), just pick first
+  return Math.min(variant,2);
+}
+
+// ── Fill board (no initial matches) ─────────────────────
+function fillBoard(){
+  let maxIter=0;
+  while(maxIter<300){
+    // Clear all types and faces
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ gridType[r][c]=''; gridFace[r*COLS+c]=createGemFace('',0); }
+
+    // Random fill — assign types first, then safe variants
+    const rows=[];
+    for(let r=0;r<ROWS;r++)rows.push([]);
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      let type=GEM_TYPES[Math.floor(Math.random()*GEM_TYPES.length)].name;
+      // Ensure no 3+ of same type in any line
+      while(true){
+        let ok=true;
+        for(let dr=-2;dr<=2&&ok;dr++)for(let dc=0;dc<COLS;dc++){
+          if(dr===-1||dr===1) continue; // only check horizontal
+          const row=r+dr; if(row>=0&&row<ROWS){
+            let cnt=0,cc=dc;while(cc+c<COLS&&gridType[row][cc]===type)cnt++; if(cnt>=MATCH_MIN){ok=false;break;}
+            cc+=3; // skip already counted
+          }
+        }
+        for(let dc=-2;dc<=2&&ok;dc++)for(let r=0;r<ROWS;r++){
+          if(dc===-1||dc===1) continue; // only check vertical
+          const col=c+dc; if(col>=0&&col<COLS){
+            let cnt=0,rr=r;while(rr+r<ROWS&&gridType[rr][col]===type)cnt++; if(cnt>=MATCH_MIN){ok=false;break;}
+            rr+=3;
+          }
+        }
+        if(ok) break;
+        type=GEM_TYPES[Math.floor(Math.random()*GEM_TYPES.length)].name;
+      }
+      rows[r].push({r,r,c,c,type});
+
+      // Now pick a safe variant for this position
+      let variant=pickSafeVariant(type);
+
+      // Also ensure no 3+ of same color (variant) in any line — even with different type names
+      while(variant<2){
+        let ok=true;
+        // Check horizontal
+        const row=r;
+        for(let dc=-2;dc<=2&&ok;dc++){if(dc===-1||dc===1)continue;}
+        const col=c+dc;
+        if(col>=0&&col<COLS){
+          let cnt=0,rr=r;
+          while(rr+r<ROWS&&gridType[rr][col]===type && gridFace[rr*COLS+col].style.backgroundColor.includes(COLORS[type][variant]) || true){cnt++;}
+        }
+      }
+
+      placeGem(r,c,type,variant);
+    }
+
+    if(!hasAnyMatch()) break; maxIter++;
+  }
+}
+
+const MATCH_MIN=3;
+// Color map for type variants
+const COLORS={diamond:'#4dc0ff',ruby:'#e74c3c',emerald:'#2ecc71',sapphire:'#5dade2',amethyst:'#9b59b6',topaz:'#f1c40f'};
+
+function hasAnyMatch(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-MATCH_MIN+1;c++){const t=gridType[r][c];if(t){let cnt=2,j=c+1;while(j+c<COLS-1&&gridType[r][j]===t)cnt++; if(cnt>=MATCH_MIN)return true}}
+  for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-MATCH_MIN+1;r++){const t=gridType[r][c];if(t){let cnt=2,k=r+1;while(k+r<ROWS-1&&gridType[k][c]===t)cnt++; if(cnt>=MATCH_MIN)return true}}
+  return false;
+}
+
+// ── Find all match coords ───────────────────────────────
+function findMatches(){
+  const m=new Set();
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-MATCH_MIN+1;c++){const t=gridType[r][c];if(t){let cnt=2,j=c+1;while(j+c<COLS-1&&gridType[r][j]===t)cnt++; if(cnt>=MATCH_MIN)for(let k=c;k<j;m.add(`${r},${k}`));}}
+  for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-MATCH_MIN+1;r++){const t=gridType[r][c];if(t){let cnt=2,k=r+1;while(k+r<ROWS-1&&gridType[k][c]===t)cnt++; if(cnt>=MATCH_MIN)for(let i=r;i<k;m.add(`${i},${c}`));}}
+  return Array.from(m).map(s=>{const p=s.split(',');return[p[0],p[1]]});
+}
+
+// ── Remove matched gems + particles ─────────────────────
+function removeMatches(matchCoords){
+  if(!matchCoords.length)return;
+  matchCoords.forEach(([r,c])=>{
+    const cell=boardEl.children[r*COLS+c];
+
+    // Explosion animation with rotation
+    cell.classList.add('gem-wrapper','match-anim');
+    cell.style.setProperty('--rot',Math.random()*720-360+'deg');
+
+    // Sparkle particles
+    for(let i=0;i<10;i++){
+      const sp=document.createElement('div');
+      sp.className='sparkle';
+      sp.style.setProperty('--dx',(Math.random()-0.5)*140+'px');
+      sp.style.setProperty('--dy',(Math.random()-0.5)*140+'px');
+      cell.appendChild(sp);
+    }
+
+    scoreEl.textContent=score+matchCoords.length;
+    score+=matchCoords.length*comboMult;
+  });
+
+  setTimeout(()=>{
+    matchCoords.forEach(([r,c])=>{ gridType[r][c]=''; });
+    applyGravity();
+  },450);
+}
+
+// ── Gravity + spawn new gems ────────────────────────────
+function applyGravity(){
+  for(let c=0;c<COLS;c++){
+    const colGems=[];
+    // Collect from bottom to top
+    for(let r=ROWS-1;r>=0;r--){if(gridType[r][c])colGems.push({r,c,type:gridType[r][c],face:gridFace[r*COLS+c]});}
+
+    while(colGems.length<ROWS){
+      // Pick a random type and safe variant
+      const colors=GEM_TYPES[Math.floor(Math.random()*GEM_TYPES.length)].colors;
+      let variant=Math.floor(Math.random()*colors.length);
+
+      // Ensure safe: no same-type above in column
+      for(let v=0;v<3&&colGems.length>0&&variant===0;v++){
+        const checkV=v;
+        let ok=true;
+        for(let i=1;i<colGems.length;i++){
+          if(colGems[i].type===colors[checkV]){ok=false;break;}
+        }
+        variant=checkV;if(ok)break;
+      }
+
+      colGems.unshift({r:0,c,type:GEM_TYPES[Math.floor(Math.random()*GEM_TYPES.length)].name,face:createGemFace(colGems[0].type,variant)});
+    }
+
+    // Place gems back in order (top to bottom) into arrays and DOM
+    for(let i=0;i<ROWS;i++){
+      const gem=colGems[i];
+      if(gem){
+        gridType[gem.r][gem.c]=gem.type;
+        gridFace[gem.r*COLS+gem.c]=gem.face;
+
+        // Falling animation on existing gems that moved down
+        if(i>0) colGems[i-1].face.style.transform=`perspective(400px) rotateX(${Math.random()*18-9}deg) rotateY(${Math.random()*12-6}deg)`;
+
+        // Fresh perspective transform for each gem
+        gem.face.style.transform=`perspective(400px) rotateX(${Math.random()*18-9}deg) rotateY(${Math.random()*12-6}deg)`;
+
+        if(i===ROWS-1){ setTimeout(()=>checkCascades(),5); return; }
+      } else {
+        gridType[i][c]='';
+        const cell=boardEl.children[i*COLS+c]; cell.innerHTML=''; gem.face.parentElement=null;
+      }
+    }
+  }
+}
+
+function checkCascades(){
+  let rounds=0, maxRounds=20;
+  while(rounds<maxRounds && !isProcessing){
+    const matches=findMatches();
+    if(!matches.length) break;
+    comboMult=Math.min(comboMult+0.5,10);
+    showCombo(matches.length*comboMult);
+    isProcessing=true; removeMatches(matches); rounds++;
+  }
+  if(!isProcessing){ scoreEl.textContent=score; comboMult=1; selectedGem=null; highlightMovable(); }
+}
+
+function showCombo(points){
+  comboEl.textContent=`+${points}`;
+  comboEl.classList.add('show');
+  bestScore=Math.max(bestScore,score); bestEl.textContent=bestScore;
+}
+
+// ── Swap two gems (recolors faces) ──────────────────────
+function swap(r1,c1,r2,c2){
+  if(isProcessing||!selectedGem)return;
+  const [sr,sc]=selectedGem;
+  // Must be adjacent (including diagonally)
+  if(Math.abs(sr-r1)>1||Math.abs(sc-c1)>1)return;
+
+  // Swap types in gridType array only — faces are shared DOM elements that get updated below
+  const temp=gridType[sr][sc];
+  gridType[sr][sc]=gridType[r2][c2];
+  gridType[r2][c2]=temp;
+
+  selectedGem=null; isProcessing=true;
+
+  setTimeout(()=>{
+    const matches=findMatches();
+    if(matches.length>0){ comboMult=1; removeMatches(matches); checkCascades(); }
+    else {
+      // Invalid swap — revert types with delay
+      gridType[sr][sc]=gridType[r2][c2];
+      gridType[r2][c2]=temp;
+      selectedGem=null;
+
+      // Rebind faces for swapped positions to update colors
+      const cell1=boardEl.children[sr*COLS+sc],cell2=boardEl.children[r2*COLS+c2];
+      const type1=GEM_TYPES.indexOf(gridType[sr][sc]),type2=GEM_TYPES.indexOf(temp);
+      if(type1>=0) cell1.innerHTML=''; gridFace[sr*COLS+sc]=createGemFace(GEM_TYPES[type1].name,Math.floor(Math.random()*3));
+      if(type2>=0) cell2.innerHTML=''; gridFace[r2*COLS+c2]=createGemFace(GEM_TYPES[type2].name,Math.floor(Math.random()*3));
+    }
+  },300);
+}
+
+// ── Click handler ──────────────────────────────────────
+function onClick(r,c){
+  if(isProcessing)return; const cell=boardEl.children[r*COLS+c]; if(!cell)return;
+
+  // If no selection yet: check adjacent same-type gems → auto-swap to one of them
+  if(!selectedGem){
+    const neighbors=[];
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      if(dr===0&&dc===0)continue;
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&gridType[nr][nc]===gridType[r][c])neighbors.push({r:nr,c:nc});
+    }
+
+    if(neighbors.length>0){
+      selectedGem={r,c};
+      setTimeout(()=>swap(r,c,neighbors[0].r,neighbors[0].c),250);
+    } else { cell.classList.add('selected'); highlightMovable(); }
+    return;
+  }
+
+  const [sr,sc]=selectedGem;
+
+  // Click same gem → deselect
+  if(r===sr&&c===sc){ boardEl.querySelectorAll('.gem-wrapper.selected').forEach(e=>e.classList.remove('selected')); selectedGem=null; return; }
+
+  // Adjacent check & swap
+  const dr=Math.abs(r-sr), dc=Math.abs(c-sc);
+  if(dr<=1&&dc<=1){
+    boardEl.querySelectorAll('.gem-wrapper.selected').forEach(e=>e.classList.add('selected'));
+    selectedGem={r,c}; setTimeout(()=>swap(sr,sc,r,c),250);
+  } else {
+    // Click different non-adjacent → deselect all
+    boardEl.querySelectorAll('.gem-wrapper').forEach(e=>{e.classList.remove('can-move','selected');});
+    selectedGem=null;
+  }
+}
+
+function highlightMovable(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const t=gridType[r][c]; if(!t)continue;
+    let movable=false;
+
+    // Check: has at least one adjacent same-type gem → can swap with it
+    for(let dr=-1;dr<=1&&!movable;dr++)for(let dc=-1;dc<=1&&!movable;dc++){
+      if(dr===0&&dc===0)continue;
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&gridType[nr][nc]===t){movable=true;}
+    }
+
+    // Check: part of a 3+ match in row or column (even without adjacent same-type neighbor)
+    if(!movable){
+      // Horizontal check: is this gem at start/end/middle of a run?
+      for(let dr=0;dr<=1&&!movable;dr++){
+        const row=r+dr,cc=c;
+        let cnt=2,jc=cc+(dr===0?0:1);
+        if(dr===0&&jc>=COLS-MATCH_MIN+1){cnt=2;jc=cc;while(jc+c<COLS-1&&gridType[row][jc]===t)cnt++;if(cnt>=MATCH_MIN){movable=true;break;}}}
+
+      // Vertical check: is this gem at start/end/middle of a run?
+      for(let dc=0;dc<=1&&!movable;dc++){
+        const col=c+dc,rr=r;
+        let cnt=2,k=rr+(dc===0?0:1);
+        if(dc===0&&k>=ROWS-MATCH_MIN+1){cnt=2;k=r;while(k+r<ROWS-1&&gridType[k][col]===t)cnt++;if(cnt>=MATCH_MIN){movable=true;break;}}}
+    }
+
+    if(movable)boardEl.children[r*COLS+c].classList.add('can-move');
+  }
+}
+
+// ── Swipe support ──────────────────────────────────────
+let touchStart=null;
+boardEl.addEventListener('touchstart',e=>{if(isProcessing)return;touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+boardEl.addEventListener('touchend',e=>{
+  if(!touchStart||isProcessing)return;
+  const ex=e.changedTouches[0].clientX,ey=e.changedTouches[0].clientY;
+  const dx=ex-touchStart.x,dy=ey-touchStart.y;
+
+  // Find selected gem position via DOM rect
+  const selEl=boardEl.querySelector('.gem-wrapper.selected');if(!selEl)return;
+  const srRect=selEl.getBoundingClientRect(),br=boardEl.getBoundingClientRect();
+  const cr=Math.round((srRect.left-br.left)/68),rr=Math.round((srRect.top-br.top)/72);
+
+  let nr=null,nc=null,drSwap=null,dcSwap=null;
+  if(Math.abs(dx)>Math.abs(dy)){ // Horizontal swipe
+    if(dx>30&&cr-1>=0){nc=cr-1;if(gridType[rr][nc]===gridType[rr][cr]){drSwap=0;dcSwap=-1}}
+    else if(dx<-30&&cr+1<COLS){nc=cr+1;if(gridType[rr][nc]===gridType[rr][cr]){drSwap=0;dcSwap=1}}
+  }else{ // Vertical swipe
+    if(dy>30&&rr-1>=0){nr=rr-1;if(gridType[nr][cr]===gridType[rr][cr]){drSwap=-1;dcSwap=0}}
+    else if(dy<-30&&rr+1<ROWS){nr=rr+1;if(gridType[nr][cr]===gridType[rr][cr]){drSwap=1;dcSwap=0}}
+  }
+
+  if(drSwap!=null&&dcSwap!=null){ selectedGem=null; selEl.classList.remove('selected'); swap(rr,cr,nr,nc); return; }
+  touchStart=null;
+},{passive:true});
+
+// ── Keyboard support ────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(isProcessing)return;
+  const selEl=boardEl.querySelector('.gem-wrapper.selected');if(!selEl)return;
+  const srRect=selEl.getBoundingClientRect(),br=boardEl.getBoundingClientRect();
+  const cr=Math.round((srRect.left-br.left)/68),rr=Math.round((srRect.top-br.top)/72);
+
+  switch(e.key){
+    case'ArrowLeft':if(cr-1>=0&&gridType[rr][cr-1]===gridType[rr][cr])swap(rr,cr,rr,cr-1);break;
+    case'ArrowRight':if(cr+1<COLS&&gridType[rr][cr+1]===gridType[rr][cr])swap(rr,cr,rr,cr+1);break;
+    case'ArrowUp':if(rr-1>=0&&gridType[rr-1][cr]===gridType[rr][cr])swap(rr,cr,rr-1,cr);break;
+    case'ArrowDown':if(rr+1<ROWS&&gridType[rr+1][cr]===gridType[rr][cr])swap(rr,cr,rr+1,cr);break;
+  } e.preventDefault();
+});
+
+// ── Start game ──────────────────────────────────────────
+function startGame(){ msgOverlay.classList.remove('show');score=0;comboMult=1;selectedGem=null;isProcessing=false;createBoard();fillBoard(); }
+startBtn.addEventListener('click',startGame);
+
+// Initial fill before overlay hides so gems appear immediately
+fillBoard();
+
+</script>
+</body>
+</html>

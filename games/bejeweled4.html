@@ -165,7 +165,7 @@ function fillBoard(){
   let maxIter=0;
   while(maxIter<300){
     // Clear all types and faces
-    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ gridType[r][c]=''; gridFace[r*COLS+c]=createGemFace('',0); }
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ gridType[r*COLS+c]=''; gridFace[r*COLS+c]=createGemFace('',0); }
 
     // Random fill — assign types first, then safe variants
     const rows=[];
@@ -178,14 +178,14 @@ function fillBoard(){
         for(let dr=-2;dr<=2&&ok;dr++)for(let dc=0;dc<COLS;dc++){
           if(dr===-1||dr===1) continue; // only check horizontal
           const row=r+dr; if(row>=0&&row<ROWS){
-            let cnt=0,cc=dc;while(cc+c<COLS&&gridType[row][cc]===type)cnt++; if(cnt>=MATCH_MIN){ok=false;break;}
+            let cnt=0,cc=dc;while(cc+c<COLS&&gridType[row*COLS+cc]===type)cnt++; if(cnt>=MATCH_MIN){ok=false;break;}
             cc+=3; // skip already counted
           }
         }
         for(let dc=-2;dc<=2&&ok;dc++)for(let r=0;r<ROWS;r++){
           if(dc===-1||dc===1) continue; // only check vertical
           const col=c+dc; if(col>=0&&col<COLS){
-            let cnt=0,rr=r;while(rr+r<ROWS&&gridType[rr][col]===type)cnt++; if(cnt>=MATCH_MIN){ok=false;break;}
+            let cnt=0,rr=r;while(rr+r*COLS+col<ROWS*COLS&&gridType[rr*COLS+col]===type)cnt++; if(cnt>=MATCH_MIN){ok=false;break;}
             rr+=3;
           }
         }
@@ -206,7 +206,7 @@ function fillBoard(){
         const col=c+dc;
         if(col>=0&&col<COLS){
           let cnt=0,rr=r;
-          while(rr+r<ROWS&&gridType[rr][col]===type && gridFace[rr*COLS+col].style.backgroundColor.includes(COLORS[type][variant]) || true){cnt++;}
+           while(rr+r*COLS+col<ROWS*COLS&&gridType[rr*COLS+col]===type && gridFace[rr*COLS+col].style.backgroundColor.includes(COLORS[type][variant]) || true){cnt++;}
         }
       }
 
@@ -222,17 +222,16 @@ const MATCH_MIN=3;
 const COLORS={diamond:'#4dc0ff',ruby:'#e74c3c',emerald:'#2ecc71',sapphire:'#5dade2',amethyst:'#9b59b6',topaz:'#f1c40f'};
 
 function hasAnyMatch(){
-  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-MATCH_MIN+1;c++){const t=gridType[r][c];if(t){let cnt=2,j=c+1;while(j+c<COLS-1&&gridType[r][j]===t)cnt++; if(cnt>=MATCH_MIN)return true}}
-  for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-MATCH_MIN+1;r++){const t=gridType[r][c];if(t){let cnt=2,k=r+1;while(k+r<ROWS-1&&gridType[k][c]===t)cnt++; if(cnt>=MATCH_MIN)return true}}
-  return false;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-MATCH_MIN+1;c++){const t=gridType[r*COLS+c];if(t){let cnt=2,j=c+1;while(j<c+COLS&&gridType[r*COLS+j]===t)cnt++; if(cnt>=MATCH_MIN)return true}}
+    for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-MATCH_MIN+1;r++){const t=gridType[r*COLS+c];if(t){let cnt=2,k=r+1;while(k+r<ROWS&&gridType[k*COLS+c]===t)cnt++; if(cnt>=MATCH_MIN)return true}}
+    return false;
 }
 
-// ── Find all match coords ───────────────────────────────
 function findMatches(){
-  const m=new Set();
-  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-MATCH_MIN+1;c++){const t=gridType[r][c];if(t){let cnt=2,j=c+1;while(j+c<COLS-1&&gridType[r][j]===t)cnt++; if(cnt>=MATCH_MIN)for(let k=c;k<j;m.add(`${r},${k}`));}}
-  for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-MATCH_MIN+1;r++){const t=gridType[r][c];if(t){let cnt=2,k=r+1;while(k+r<ROWS-1&&gridType[k][c]===t)cnt++; if(cnt>=MATCH_MIN)for(let i=r;i<k;m.add(`${i},${c}`));}}
-  return Array.from(m).map(s=>{const p=s.split(',');return[p[0],p[1]]});
+    const m=new Set();
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS-MATCH_MIN+1;c++){const t=gridType[r*COLS+c];if(t){let cnt=2,j=c+1;while(j<c+COLS&&gridType[r*COLS+j]===t)cnt++; if(cnt>=MATCH_MIN)for(let k=c;k<j;m.add(`${r},${k}`));}}
+    for(let c=0;c<COLS;c++)for(let r=0;r<ROWS-MATCH_MIN+1;r++){const t=gridType[r*COLS+c];if(t){let cnt=2,k=r+1;while(k+r<ROWS&&gridType[k*COLS+c]===t)cnt++; if(cnt>=MATCH_MIN)for(let i=r;i<k;m.add(`${i},${c}`));}}
+    return Array.from(m).map(s=>{const p=s.split(',');return[p[0],p[1]]});
 }
 
 // ── Remove matched gems + particles ─────────────────────
@@ -259,7 +258,7 @@ function removeMatches(matchCoords){
   });
 
   setTimeout(()=>{
-    matchCoords.forEach(([r,c])=>{ gridType[r][c]=''; });
+    matchCoords.forEach(([r,c])=>{ gridType[r*COLS+c]=''; });
     applyGravity();
   },450);
 }
@@ -269,7 +268,7 @@ function applyGravity(){
   for(let c=0;c<COLS;c++){
     const colGems=[];
     // Collect from bottom to top
-    for(let r=ROWS-1;r>=0;r--){if(gridType[r][c])colGems.push({r,c,type:gridType[r][c],face:gridFace[r*COLS+c]});}
+    for(let r=ROWS-1;r>=0;r--){if(gridType[r*COLS+c])colGems.push({r,c,type:gridType[r*COLS+c],face:gridFace[r*COLS+c]});}
 
     while(colGems.length<ROWS){
       // Pick a random type and safe variant

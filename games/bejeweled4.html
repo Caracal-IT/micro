@@ -75,7 +75,7 @@ function createGemFace(type,variant){
   el.style.cssText='width:48px;height:48px;clip-path:polygon(0 12%,15% 0,33% 6%,67% 0,85% 6%,100% 12%,100% 33%,85% 38%,67% 44%,33% 38%,15% 44%,0 33%,0 12%)';
   el.style.position='relative;background:transparent;transition:filter .2s ease,transform .25s ease';
 
-  const colors=GEM_TYPES[type].colors;
+  const colors=GEM_TYPES[type]?.colors || GEM_TYPES[0].colors;
   const baseColor=colors[variant];
 
   // Multi-layered radial gradient for polished gem look
@@ -126,9 +126,9 @@ function createBoard(){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
     const cell=document.createElement('div');
     cell.className='gem-wrapper'; cell.dataset.r=r; cell.dataset.c=c;
-    gridFace[r*COLS+c]=createGemFace('',0); // placeholder face
+    gridFace[r*COLS+c]=createGemFace('diamond',0); // placeholder face
     boardEl.appendChild(cell);
-    gridType[r][c]=''; // no type yet
+    gridType[r*COLS+c]=''; // no type yet
   }
 }
 
@@ -141,8 +141,8 @@ function placeGem(r,c,type,variant){
 }
 
 // ── Pick a safe variant for a gem type (no immediate match with neighbors) ──
-function pickSafeVariant(type){
-  const colors=GEM_TYPES[type].colors;
+function pickSafeVariant(type,r,c){
+  const colors=GEM_TYPES[type]?.colors || GEM_TYPES[0].colors;
   let variant=Math.floor(Math.random()*colors.length);
 
   // Ensure this variant doesn't create an immediate match with existing neighbors of same type
@@ -151,7 +151,7 @@ function pickSafeVariant(type){
     for(let dr=-1;dr<=1&&safe;dr++)for(let dc=-1;dc<=1&&safe;dc++){
       if(dr===0&&dc===0)continue;
       const nr=r+dr,nc=c+dc; // will be set before this call
-      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS && gridType[nr][nc]===type){ safe=false;break;}
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS && gridType[nr*COLS+nc]===type){ safe=false;break;}
     }
     if(safe) break; variant++;
   }
@@ -165,7 +165,7 @@ function fillBoard(){
   let maxIter=0;
   while(maxIter<300){
     // Clear all types and faces
-    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ gridType[r*COLS+c]=''; gridFace[r*COLS+c]=createGemFace('',0); }
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ gridType[r*COLS+c]=''; gridFace[r*COLS+c]=createGemFace('diamond',0); }
 
     // Random fill — assign types first, then safe variants
     const rows=[];
@@ -195,20 +195,20 @@ function fillBoard(){
       rows[r].push({r,r,c,c,type});
 
       // Now pick a safe variant for this position
-      let variant=pickSafeVariant(type);
+      let variant=pickSafeVariant(type,r,c);
 
       // Also ensure no 3+ of same color (variant) in any line — even with different type names
       while(variant<2){
         let ok=true;
         // Check horizontal
-        const row=r;
         for(let dc=-2;dc<=2&&ok;dc++){if(dc===-1||dc===1)continue;}
         const col=c+dc;
         if(col>=0&&col<COLS){
           let cnt=0,rr=r;
-           while(rr+r*COLS+col<ROWS*COLS&&gridType[rr*COLS+col]===type && gridFace[rr*COLS+col].style.backgroundColor.includes(COLORS[type][variant]) || true){cnt++;}
+          while(rr+r*COLS+col<ROWS*COLS&&gridType[rr*COLS+col]===type && gridFace[rr*COLS+col].style.backgroundColor.includes(COLORS[type][variant])){cnt++; rr++}
         }
       }
+
 
       placeGem(r,c,type,variant);
     }
@@ -292,7 +292,7 @@ function applyGravity(){
     for(let i=0;i<ROWS;i++){
       const gem=colGems[i];
       if(gem){
-        gridType[gem.r][gem.c]=gem.type;
+        gridType[gem.r*COLS+gem.c]=gem.type;
         gridFace[gem.r*COLS+gem.c]=gem.face;
 
         // Falling animation on existing gems that moved down
@@ -303,7 +303,7 @@ function applyGravity(){
 
         if(i===ROWS-1){ setTimeout(()=>checkCascades(),5); return; }
       } else {
-        gridType[i][c]='';
+        gridType[i*COLS+c]='';
         const cell=boardEl.children[i*COLS+c]; cell.innerHTML=''; gem.face.parentElement=null;
       }
     }
@@ -336,9 +336,9 @@ function swap(r1,c1,r2,c2){
   if(Math.abs(sr-r1)>1||Math.abs(sc-c1)>1)return;
 
   // Swap types in gridType array only — faces are shared DOM elements that get updated below
-  const temp=gridType[sr][sc];
-  gridType[sr][sc]=gridType[r2][c2];
-  gridType[r2][c2]=temp;
+  const temp=gridType[sr*COLS+sc];
+  gridType[sr*COLS+sc]=gridType[r2*COLS+c2];
+  gridType[r2*COLS+c2]=temp;
 
   selectedGem=null; isProcessing=true;
 
@@ -347,8 +347,8 @@ function swap(r1,c1,r2,c2){
     if(matches.length>0){ comboMult=1; removeMatches(matches); checkCascades(); }
     else {
       // Invalid swap — revert types with delay
-      gridType[sr][sc]=gridType[r2][c2];
-      gridType[r2][c2]=temp;
+      gridType[sr*COLS+sc]=gridType[r2*COLS+c2];
+      gridType[r2*COLS+c2]=temp;
       selectedGem=null;
 
       // Rebind faces for swapped positions to update colors
@@ -370,7 +370,7 @@ function onClick(r,c){
     for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
       if(dr===0&&dc===0)continue;
       const nr=r+dr,nc=c+dc;
-      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&gridType[nr][nc]===gridType[r][c])neighbors.push({r:nr,c:nc});
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&gridType[nr*COLS+nc]===gridType[r*COLS+c])neighbors.push({r:nr,c:nc});
     }
 
     if(neighbors.length>0){
@@ -399,14 +399,14 @@ function onClick(r,c){
 
 function highlightMovable(){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-    const t=gridType[r][c]; if(!t)continue;
+    const t=gridType[r*COLS+c]; if(!t)continue;
     let movable=false;
 
     // Check: has at least one adjacent same-type gem → can swap with it
     for(let dr=-1;dr<=1&&!movable;dr++)for(let dc=-1;dc<=1&&!movable;dc++){
       if(dr===0&&dc===0)continue;
       const nr=r+dr,nc=c+dc;
-      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&gridType[nr][nc]===t){movable=true;}
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&gridType[nr*COLS+nc]===t){movable=true;}
     }
 
     // Check: part of a 3+ match in row or column (even without adjacent same-type neighbor)
@@ -415,13 +415,13 @@ function highlightMovable(){
       for(let dr=0;dr<=1&&!movable;dr++){
         const row=r+dr,cc=c;
         let cnt=2,jc=cc+(dr===0?0:1);
-        if(dr===0&&jc>=COLS-MATCH_MIN+1){cnt=2;jc=cc;while(jc+c<COLS-1&&gridType[row][jc]===t)cnt++;if(cnt>=MATCH_MIN){movable=true;break;}}}
+        if(dr===0&&jc>=COLS-MATCH_MIN+1){cnt=2;jc=cc;while(jc+c<COLS-1&&gridType[row*COLS+jc]===t)cnt++;if(cnt>=MATCH_MIN){movable=true;break;}}}
 
       // Vertical check: is this gem at start/end/middle of a run?
       for(let dc=0;dc<=1&&!movable;dc++){
         const col=c+dc,rr=r;
         let cnt=2,k=rr+(dc===0?0:1);
-        if(dc===0&&k>=ROWS-MATCH_MIN+1){cnt=2;k=r;while(k+r<ROWS-1&&gridType[k][col]===t)cnt++;if(cnt>=MATCH_MIN){movable=true;break;}}}
+        if(dc===0&&k>=ROWS-MATCH_MIN+1){cnt=2;k=r;while(k+r<ROWS-1&&gridType[k*COLS+col]===t)cnt++;if(cnt>=MATCH_MIN){movable=true;break;}}}
     }
 
     if(movable)boardEl.children[r*COLS+c].classList.add('can-move');
@@ -443,11 +443,11 @@ boardEl.addEventListener('touchend',e=>{
 
   let nr=null,nc=null,drSwap=null,dcSwap=null;
   if(Math.abs(dx)>Math.abs(dy)){ // Horizontal swipe
-    if(dx>30&&cr-1>=0){nc=cr-1;if(gridType[rr][nc]===gridType[rr][cr]){drSwap=0;dcSwap=-1}}
-    else if(dx<-30&&cr+1<COLS){nc=cr+1;if(gridType[rr][nc]===gridType[rr][cr]){drSwap=0;dcSwap=1}}
+    if(dx>30&&cr-1>=0){nc=cr-1;if(gridType[rr*COLS+nc]===gridType[rr*COLS+cr]){drSwap=0;dcSwap=-1}}
+    else if(dx<-30&&cr+1<COLS){nc=cr+1;if(gridType[rr*COLS+nc]===gridType[rr*COLS+cr]){drSwap=0;dcSwap=1}}
   }else{ // Vertical swipe
-    if(dy>30&&rr-1>=0){nr=rr-1;if(gridType[nr][cr]===gridType[rr][cr]){drSwap=-1;dcSwap=0}}
-    else if(dy<-30&&rr+1<ROWS){nr=rr+1;if(gridType[nr][cr]===gridType[rr][cr]){drSwap=1;dcSwap=0}}
+    if(dy>30&&rr-1>=0){nr=rr-1;if(gridType[nr*COLS+cr]===gridType[rr*COLS+cr]){drSwap=-1;dcSwap=0}}
+    else if(dy<-30&&rr+1<ROWS){nr=rr+1;if(gridType[nr*COLS+cr]===gridType[rr*COLS+cr]){drSwap=1;dcSwap=0}}
   }
 
   if(drSwap!=null&&dcSwap!=null){ selectedGem=null; selEl.classList.remove('selected'); swap(rr,cr,nr,nc); return; }
@@ -462,10 +462,10 @@ document.addEventListener('keydown',e=>{
   const cr=Math.round((srRect.left-br.left)/68),rr=Math.round((srRect.top-br.top)/72);
 
   switch(e.key){
-    case'ArrowLeft':if(cr-1>=0&&gridType[rr][cr-1]===gridType[rr][cr])swap(rr,cr,rr,cr-1);break;
-    case'ArrowRight':if(cr+1<COLS&&gridType[rr][cr+1]===gridType[rr][cr])swap(rr,cr,rr,cr+1);break;
-    case'ArrowUp':if(rr-1>=0&&gridType[rr-1][cr]===gridType[rr][cr])swap(rr,cr,rr-1,cr);break;
-    case'ArrowDown':if(rr+1<ROWS&&gridType[rr+1][cr]===gridType[rr][cr])swap(rr,cr,rr+1,cr);break;
+    case'ArrowLeft':if(cr-1>=0&&gridType[rr*COLS+cr-1]===gridType[rr*COLS+cr])swap(rr,cr,rr,cr-1);break;
+    case'ArrowRight':if(cr+1<COLS&&gridType[rr*COLS+cr+1]===gridType[rr*COLS+cr])swap(rr,cr,rr,cr+1);break;
+    case'ArrowUp':if(rr-1>=0&&gridType[(rr-1)*COLS+cr]===gridType[rr*COLS+cr])swap(rr,cr,rr-1,cr);break;
+    case'ArrowDown':if(rr+1<ROWS&&gridType[(rr+1)*COLS+cr]===gridType[rr*COLS+cr])swap(rr,cr,rr+1,cr);break;
   } e.preventDefault();
 });
 

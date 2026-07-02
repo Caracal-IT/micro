@@ -17,3 +17,9 @@ vendor/
 *.out
 *.test
 *.exe
+
+# Node.js / Vite (photo-album-organizer)
+photo-album-organizer/node_modules/
+photo-album-organizer/dist/
+*.log
+.env

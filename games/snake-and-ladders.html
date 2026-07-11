@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake and Ladders</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: sans-serif;
+        }
+        #game-container {
+            position: relative;
+            user-select: none;
+        }
+        canvas {
+            background: #000;
+            border: 4px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        .ui {
+            margin-bottom: 10px;
+            font-size: 24px;
+            display: flex;
+            gap: 30px;
+        }
+        #roll-btn {
+            margin-top: 12px;
+            padding: 10px 32px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(145deg, #4a9eff, #1a5fff);
+            color: #fff;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(26,95,255,0.5);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        #roll-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(26,95,255,0.7);
+        }
+        #roll-btn:active {
+            transform: scale(0.97);
+        }
+        #roll-btn:disabled {
+            background: #555;
+            color: #888;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        #dice-display {
+            font-size: 48px;
+            margin-top: 8px;
+            min-height: 54px;
+        }
+        #message {
+            margin-top: 6px;
+            font-size: 18px;
+            color: #ffd700;
+            min-height: 22px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui">
+        <div>Player 1: <span id="p1pos">0</span></div>
+        <div>Player 2: <span id="p2pos">0</span></div>
+    </div>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <div id="dice-display"></div>
+    <div id="message"></div>
+    <button id="roll-btn">Roll Dice</button>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const rollBtn = document.getElementById('roll-btn');
+        const diceDisplay = document.getElementById('dice-display');
+        const messageEl = document.getElementById('message');
+        const p1El = document.getElementById('p1pos');
+        const p2El = document.getElementById('p2pos');
+
+        const BOARD_SIZE = 10;
+        const CELL_SIZE = 72;
+        canvas.width = BOARD_SIZE * CELL_SIZE;
+        canvas.height = BOARD_SIZE * CELL_SIZE;
+
+        const snakes = {
+            16: 6,
+            47: 26,
+            49: 11,
+            56: 53,
+            62: 19,
+            64: 60,
+            87: 24,
+            93: 73,
+            95: 75,
+            98: 78
+        };
+
+        const ladders = {
+            1: 38,
+            4: 14,
+            9: 31,
+            21: 42,
+            28: 84,
+            36: 44,
+            51: 67,
+            71: 91,
+            80: 100
+        };
+
+        let players = [
+            { pos: 0, color: '#FF355E', name: 'P1' },
+            { pos: 0, color: '#50BFE6', name: 'P2' }
+        ];
+        let currentPlayer = 0;
+        let animating = false;
+        let gameOver = false;
+
+        function getCellCenter(square) {
+            if (square <= 0) return { x: -CELL_SIZE, y: BOARD_SIZE * CELL_SIZE };
+            square = Math.min(square, 100);
+            const idx = square - 1;
+            const row = Math.floor(idx / BOARD_SIZE);
+            let col = idx % BOARD_SIZE;
+            if (row % 2 === 1) col = BOARD_SIZE - 1 - col;
+            const x = col * CELL_SIZE + CELL_SIZE / 2;
+            const y = (BOARD_SIZE - 1 - row) * CELL_SIZE + CELL_SIZE / 2;
+            return { x, y };
+        }
+
+        function generateSnakePath(start, end) {
+            const points = [];
+            const segments = 80;
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 1) return points;
+
+            const perpX = -dy / len;
+            const perpY = dx / len;
+            const amp = Math.min(len * 0.18, 28);
+
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const wave1 = Math.sin(t * Math.PI * 5) * amp;
+                const wave2 = Math.sin(t * Math.PI * 1.7 + 0.8) * amp * 0.45;
+                const wave3 = Math.sin(t * Math.PI * 3.3 + 1.5) * amp * 0.25;
+                const wave = (wave1 + wave2 + wave3) * (1 - t * 0.5);
+                points.push({
+                    x: start.x + dx * t + perpX * wave,
+                    y: start.y + dy * t + perpY * wave,
+                    t: t
+                });
+            }
+            return points;
+        }
+
+        function getSnakeColors(from) {
+            const palettes = [
+                { body: '#2E7D32', dark: '#1B5E20', belly: '#A5D6A7', eye: '#FFEB3B', scale: '#66BB6A', bellyStart: 0.3 },
+                { body: '#5D4037', dark: '#3E2723', belly: '#BCAAA4', eye: '#FFF176', scale: '#8D6E63', bellyStart: 0.4 },
+                { body: '#00695C', dark: '#004D40', belly: '#80CBC4', eye: '#FFD54F', scale: '#4DB6AC', bellyStart: 0.35 },
+                { body: '#BF360C', dark: '#8B2500', belly: '#FFAB91', eye: '#FFEE58', scale: '#FF7043', bellyStart: 0.5 },
+            ];
+            return palettes[from % palettes.length];
+        }
+
+        function drawSnakeBody(path, col) {
+            const total = path.length;
+            const maxBodyW = 13;
+            const minTailW = 2;
+
+            // Draw body as filled ribbon with varying width
+            for (let layer = 3; layer >= 1; layer--) {
+                const layerScale = layer / 3;
+                ctx.beginPath();
+
+                // Right edge
+                for (let i = 0; i < total; i++) {
+                    const p = path[i];
+                    const t = p.t;
+                    const taper = Math.pow(1 - t * 0.85, 2);
+                    const w = (maxBodyW * taper + minTailW) * layerScale;
+
+                    // Compute perpendicular direction
+                    let nx, ny;
+                    if (i < total - 1) {
+                        const dx = path[i + 1].x - p.x;
+                        const dy = path[i + 1].y - p.y;
+                        const sl = Math.sqrt(dx * dx + dy * dy) || 1;
+                        nx = -dy / sl;
+                        ny = dx / sl;
+                    } else {
+                        const dx = p.x - path[i - 1].x;
+                        const dy = p.y - path[i - 1].y;
+                        const sl = Math.sqrt(dx * dx + dy * dy) || 1;
+                        nx = -dy / sl;
+                        ny = dx / sl;
+                    }
+
+                    const ex = p.x + nx * w;
+                    const ey = p.y + ny * w;
+                    if (i === 0) ctx.moveTo(ex, ey);
+                    else ctx.lineTo(ex, ey);
+                }
+
+                // Left edge (reverse)
+                for (let i = total - 1; i >= 0; i--) {
+                    const p = path[i];
+                    const t = p.t;
+                    const taper = Math.pow(1 - t * 0.85, 2);
+                    const w = (maxBodyW * taper + minTailW) * layerScale;
+
+                    let nx, ny;
+                    if (i > 0) {
+                        const dx = p.x - path[i - 1].x;
+                        const dy = p.y - path[i - 1].y;
+                        const sl = Math.sqrt(dx * dx + dy * dy) || 1;
+                        nx = -dy / sl;
+                        ny = dx / sl;
+                    } else {
+                        const dx = path[1].x - p.x;
+                        const dy = path[1].y - p.y;
+                        const sl = Math.sqrt(dx * dx + dy * dy) || 1;
+                        nx = -dy / sl;
+                        ny = dx / sl;
+                    }
+
+                    ctx.lineTo(p.x - nx * w, p.y - ny * w);
+                }
+
+                ctx.closePath();
+                if (layer === 1) {
+                    ctx.fillStyle = col.body;
+                } else if (layer === 2) {
+                    ctx.fillStyle = col.dark;
+                } else {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                }
+                ctx.fill();
+            }
+        }
+
+        function drawSnakeScales(path, col) {
+            const total = path.length;
+            const scaleSpacing = 4;
+
+            for (let i = 0; i < total; i += scaleSpacing) {
+                const p = path[i];
+                const t = p.t;
+                if (t < 0.15 || t > 0.9) continue;
+
+                let nx, ny;
+                if (i < total - 1) {
+                    const dx = path[Math.min(i + 1, total - 1)].x - p.x;
+                    const dy = path[Math.min(i + 1, total - 1)].y - p.y;
+                    const sl = Math.sqrt(dx * dx + dy * dy) || 1;
+                    nx = -dy / sl;
+                    ny = dx / sl;
+                } else {
+                    const dx = p.x - path[i - 1].x;
+                    const dy = p.y - path[i - 1].y;
+                    const sl = Math.sqrt(dx * dx + dy * dy) || 1;
+                    nx = -dy / sl;
+                    ny = dx / sl;
+                }
+
+                const taper = Math.pow(1 - t * 0.85, 2);
+                const scaleW = 4 * taper;
+
+                // Draw scale as small arc
+                ctx.strokeStyle = col.scale;
+                ctx.lineWidth = 1.2;
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                ctx.arc(
+                    p.x + nx * scaleW * 0.5,
+                    p.y + ny * scaleW * 0.5,
+                    scaleW * 0.8,
+                    Math.atan2(ny, nx) - 0.6,
+                    Math.atan2(ny, nx) + 0.6
+                );
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(
+                    p.x - nx * scaleW * 0.5,
+                    p.y - ny * scaleW * 0.5,
+                    scaleW * 0.8,
+                    Math.atan2(-ny, -nx) - 0.6,
+                    Math.atan2(-ny, -nx) + 0.6
+                );
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        function drawBellyPattern(path, col) {
+            const total = path.length;
+
+            for (let i = 0; i < total; i += 3) {
+                const p = path[i];
+                const t = p.t;
+                const bellyT = Math.max(0, t - col.bellyStart);
+                if (bellyT <= 0) continue;
+
+                const bellyWidth = (1 - Math.pow(bellyT, 2)) * 3;
+                if (bellyWidth < 0.5) continue;
+
+                let nx, ny;
+                if (i < total - 1) {
+                    const dx = path[i + 1].x - p.x;
+                    const dy = path[i + 1].y - p.y;
+                    const sl = Math.sqrt(dx * dx + dy * dy) || 1;
+                    nx = -dy / sl;
+                    ny = dx / sl;
+                } else {
+                    const dx = p.x - path[i - 1].x;
+                    const dy = p.y - path[i - 1].y;
+                    const sl = Math.sqrt(dx * dx + dy * dy) || 1;
+                    nx = -dy / sl;
+                    ny = dx / sl;
+                }
+
+                ctx.fillStyle = col.belly;
+                ctx.globalAlpha = 0.25;
+                ctx.beginPath();
+                ctx.ellipse(
+                    p.x, p.y,
+                    bellyWidth * 1.5, bellyWidth,
+                    Math.atan2(ny, nx), 0, Math.PI * 2
+                );
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawSnakeHead(head, neck, col) {
+            const headDx = head.x - neck.x;
+            const headDy = head.y - neck.y;
+            const headAngle = Math.atan2(headDy, headDx);
+            const fwdX = Math.cos(headAngle);
+            const fwdY = Math.sin(headAngle);
+            const perpX = -Math.sin(headAngle);
+            const perpY = Math.cos(headAngle);
+
+            const headR = 12;
+
+            // Head base - broader, triangular
+            ctx.fillStyle = col.body;
+            ctx.beginPath();
+            ctx.ellipse(
+                head.x + fwdX * 3, head.y + fwdY * 3,
+                headR * 1.4, headR,
+                headAngle, 0, Math.PI * 2
+            );
+            ctx.fill();
+
+            // Head highlight
+            ctx.fillStyle = col.dark;
+            ctx.beginPath();
+            ctx.ellipse(
+                head.x + fwdX * 5, head.y + fwdY * 5,
+                headR, headR * 0.7,
+                headAngle, 0, Math.PI * 2
+            );
+            ctx.fill();
+
+            // Belly underneath
+            ctx.fillStyle = col.belly;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.ellipse(
+                head.x + fwdX * 4, head.y + fwdY * 4,
+                headR * 0.7, headR * 0.4,
+                headAngle, 0, Math.PI * 2
+            );
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
+            // Eyes - larger, with slit pupils
+            const eyeDist = 5;
+            const eyeFwdOffset = 6;
+            for (const side of [-1, 1]) {
+                const ex = head.x + fwdX * eyeFwdOffset + perpX * eyeDist * side;
+                const ey = head.y + fwdY * eyeFwdOffset + perpY * eyeDist * side;
+
+                // Eye white/sclera
+                ctx.fillStyle = col.eye;
+                ctx.beginPath();
+                ctx.ellipse(ex, ey, 3.5, 2.5, headAngle, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Slit pupil
+                ctx.fillStyle = '#111';
+                ctx.beginPath();
+                ctx.ellipse(
+                    ex + fwdX * 0.5, ey + fwdY * 0.5,
+                    1.0, 2.0, headAngle, 0, Math.PI * 2
+                );
+                ctx.fill();
+
+                // Eye highlight
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.beginPath();
+                ctx.arc(ex - perpX * side, ey - perpY * side, 0.8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Nostrils
+            const nostrilDist = 3;
+            for (const side of [-1, 1]) {
+                const nox = head.x + fwdX * 12 + perpX * nostrilDist * side;
+                const noy = head.y + fwdY * 12 + perpY * nostrilDist * side;
+                ctx.fillStyle = '#111';
+                ctx.beginPath();
+                ctx.arc(nox, noy, 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Heat pits (between eye and nostril)
+            for (const side of [-1, 1]) {
+                const pix = head.x + fwdX * 9 + perpX * 4 * side;
+                const pid = head.y + fwdY * 9 + perpY * 4 * side;
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.beginPath();
+                ctx.arc(pix, pid, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Forked tongue
+            ctx.strokeStyle = '#E53935';
+            ctx.lineWidth = 1.5;
+            const tongueBase = headR * 1.3;
+            const tongueLen = 10;
+            const forkLen = 5;
+
+            const tBaseX = head.x + fwdX * tongueBase;
+            const tBaseY = head.y + fwdY * tongueBase;
+            const tipX = tBaseX + fwdX * tongueLen;
+            const tipY = tBaseY + fwdY * tongueLen;
+
+            ctx.beginPath();
+            ctx.moveTo(tBaseX, tBaseY);
+            ctx.lineTo(tipX, tipY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(tipX, tipY);
+            ctx.lineTo(
+                tipX + fwdX * forkLen + perpX * 2.5,
+                tipY + fwdY * forkLen + perpY * 2.5
+            );
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(tipX, tipY);
+            ctx.lineTo(
+                tipX + fwdX * forkLen - perpX * 2.5,
+                tipY + fwdY * forkLen - perpY * 2.5
+            );
+            ctx.stroke();
+        }
+
+        function drawSnake(from, to) {
+            const start = getCellCenter(from);
+            const end = getCellCenter(to);
+            const path = generateSnakePath(start, end);
+            if (path.length < 2) return;
+
+            const col = getSnakeColors(from);
+
+            // Draw body with varying thickness (head fat, tail thin)
+            drawSnakeBody(path, col);
+
+            // Draw scale pattern along body
+            drawSnakeScales(path, col);
+
+            // Draw lighter belly strip
+            drawBellyPattern(path, col);
+
+            // Draw head
+            const head = path[0];
+            const neck = path[4] || path[2];
+            drawSnakeHead(head, neck, col);
+        }
+
+        function drawLadder(from, to) {
+            const start = getCellCenter(from);
+            const end = getCellCenter(to);
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 1) return;
+
+            const ux = -dy / len;
+            const uy = dx / len;
+            const railWidth = 14;
+            const railThickness = 3;
+            const rungs = Math.max(3, Math.floor(len / 20));
+
+            // Draw rails with wood gradient effect
+            for (const side of [-1, 1]) {
+                const rx = ux * railWidth * side;
+                const ry = uy * railWidth * side;
+
+                // Rail shadow
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = railThickness + 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(start.x + rx + 1, start.y + ry + 1);
+                ctx.lineTo(end.x + rx + 1, end.y + ry + 1);
+                ctx.stroke();
+
+                // Main rail
+                ctx.strokeStyle = '#8B6914';
+                ctx.lineWidth = railThickness;
+                ctx.beginPath();
+                ctx.moveTo(start.x + rx, start.y + ry);
+                ctx.lineTo(end.x + rx, end.y + ry);
+                ctx.stroke();
+
+                // Highlight
+                ctx.strokeStyle = '#C49A3A';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(start.x + rx - ux * 0.5, start.y + ry - uy * 0.5);
+                ctx.lineTo(end.x + rx - ux * 0.5, end.y + ry - uy * 0.5);
+                ctx.stroke();
+            }
+
+            // Draw rungs
+            for (let i = 0; i <= rungs; i++) {
+                const t = i / rungs;
+                const rx = start.x + dx * t;
+                const ry = start.y + dy * t;
+
+                ctx.strokeStyle = '#7A5C10';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(rx + ux * railWidth, ry + uy * railWidth);
+                ctx.lineTo(rx - ux * railWidth, ry - uy * railWidth);
+                ctx.stroke();
+
+                // Rung highlight
+                ctx.strokeStyle = '#B8922E';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(rx + ux * railWidth + uy * 0.5, ry + uy * railWidth - ux * 0.5);
+                ctx.lineTo(rx - ux * railWidth + uy * 0.5, ry - uy * railWidth - ux * 0.5);
+                ctx.stroke();
+            }
+
+            // Small posts at ends
+            for (const pt of [start, end]) {
+                for (const side of [-1, 1]) {
+                    ctx.fillStyle = '#6B4E0A';
+                    ctx.beginPath();
+                    ctx.arc(pt.x + ux * railWidth * side, pt.y + uy * railWidth * side, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawBoard() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const row = BOARD_SIZE - 1 - r;
+                    let col = c;
+                    if (row % 2 === 1) col = BOARD_SIZE - 1 - c;
+                    const square = row * BOARD_SIZE + col + 1;
+                    const x = c * CELL_SIZE;
+                    const y = r * CELL_SIZE;
+
+                    const isSnake = snakes[square];
+                    const isLadder = ladders[square];
+
+                    if ((r + c) % 2 === 0) {
+                        ctx.fillStyle = '#FFFFFF';
+                    } else {
+                        ctx.fillStyle = '#1a5fff';
+                    }
+                    ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, CELL_SIZE, CELL_SIZE);
+
+                    ctx.fillStyle = (r + c) % 2 === 0 ? '#1a5fff' : '#fff';
+                    ctx.font = '11px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(square, x + CELL_SIZE / 2, y + CELL_SIZE / 2);
+                }
+            }
+
+            // Draw snakes
+            for (const [from, to] of Object.entries(snakes)) {
+                drawSnake(parseInt(from), parseInt(to));
+            }
+
+            // Draw ladders
+            for (const [from, to] of Object.entries(ladders)) {
+                drawLadder(parseInt(from), parseInt(to));
+            }
+
+            // Draw players
+            for (let i = 0; i < players.length; i++) {
+                if (players[i].pos > 0) {
+                    const cell = getCellCenter(players[i].pos);
+                    const offset = i === 0 ? -8 : 8;
+                    ctx.fillStyle = players[i].color;
+                    ctx.beginPath();
+                    ctx.arc(cell.x + offset, cell.y, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 9px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(players[i].name, cell.x + offset, cell.y);
+                }
+            }
+        }
+
+        function animateMove(player, from, to, callback) {
+            let step = from;
+            const dir = to > from ? 1 : -1;
+            const speed = 120;
+
+            function tick() {
+                if (step !== to) {
+                    step += dir;
+                    players[player].pos = step;
+                    updatePositions();
+                    drawBoard();
+                    setTimeout(tick, speed);
+                } else {
+                    players[player].pos = to;
+                    updatePositions();
+                    drawBoard();
+                    setTimeout(callback, 200);
+                }
+            }
+            tick();
+        }
+
+        function updatePositions() {
+            p1El.textContent = players[0].pos;
+            p2El.textContent = players[1].pos;
+        }
+
+        function rollDice() {
+            if (animating || gameOver) return;
+            animating = true;
+            rollBtn.disabled = true;
+            messageEl.textContent = '';
+
+            const dice = Math.floor(Math.random() * 6) + 1;
+            diceDisplay.textContent = dice;
+
+            const player = players[currentPlayer];
+            const newPos = Math.min(player.pos + dice, 100);
+
+            if (player.pos === newPos) {
+                messageEl.textContent = `${player.name} rolled ${dice}, needs exact roll!`;
+                currentPlayer = (currentPlayer + 1) % players.length;
+                animating = false;
+                rollBtn.disabled = false;
+                return;
+            }
+
+            animateMove(currentPlayer, player.pos, newPos, () => {
+                if (snakes[newPos]) {
+                    messageEl.textContent = `${player.name} bitten by a snake!`;
+                    const dest = snakes[newPos];
+                    animateMove(currentPlayer, newPos, dest, () => {
+                        finishTurn();
+                    });
+                } else if (ladders[newPos]) {
+                    messageEl.textContent = `${player.name} climbed a ladder!`;
+                    const dest = ladders[newPos];
+                    animateMove(currentPlayer, newPos, dest, () => {
+                        finishTurn();
+                    });
+                } else {
+                    finishTurn();
+                }
+            });
+        }
+
+        function finishTurn() {
+            const player = players[currentPlayer];
+            if (player.pos === 100) {
+                messageEl.textContent = `🎉 ${player.name} WINS! 🎉`;
+                gameOver = true;
+                diceDisplay.textContent = '';
+                rollBtn.disabled = true;
+                return;
+            }
+            currentPlayer = (currentPlayer + 1) % players.length;
+            animating = false;
+            rollBtn.disabled = false;
+        }
+
+        canvas.addEventListener('click', () => {
+            if (!gameOver && !animating) {
+                rollDice();
+            }
+        });
+        rollBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            rollDice();
+        });
+
+        drawBoard();
+    </script>
+</body>
+</html>

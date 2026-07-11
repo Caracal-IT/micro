@@ -611,7 +611,7 @@
         const cheatBanner = document.getElementById('cheat-banner');
 
         const GRID_SIZE = 8;
-        const GEM_SIZE = 90; // higher internal resolution → supersampled, crisp gems
+        const GEM_SIZE = 72; // internal resolution — supersampled but not excessive, matters a lot for phone GPUs
         const COLORS = [
             '#FF3B58', // Ruby red      -> round brilliant
             '#FFC93C', // Topaz gold    -> emerald step-cut
@@ -1209,6 +1209,25 @@
             return sprite;
         }
 
+        /* Cast-shadow ellipse, pre-rendered once instead of allocating a fresh
+           CanvasGradient for all 64 gems on every single frame. */
+        const shadowSprite = (() => {
+            const R = GEM_SIZE * 0.4;
+            const size = Math.ceil((R * 0.8 + R * 0.42) * 2 + 4);
+            const c = document.createElement('canvas');
+            c.width = c.height = size;
+            const g = c.getContext('2d');
+            const cx = size / 2, cy = size / 2;
+            const shGrad = g.createRadialGradient(cx, cy + R * 0.75, R * 0.15, cx, cy + R * 0.8, R * 1.15);
+            shGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
+            shGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            g.fillStyle = shGrad;
+            g.beginPath();
+            g.ellipse(cx, cy + R * 0.8, R * 1.05, R * 0.42, 0, 0, Math.PI * 2);
+            g.fill();
+            return { canvas: c, size, R };
+        })();
+
         /* Soft 4-point specular glint, pre-blurred once instead of paying for
            ctx.shadowBlur on every gem, every frame (2 glints x 64 gems x 60fps). */
         const glintSprite = (() => {
@@ -1364,16 +1383,12 @@
                 const centerY = this.y + GEM_SIZE / 2 - this.lift * 7;
                 const R = this.radius * this.scale * (1 + this.lift * 0.14);
 
-                // ---- Cast shadow on the felt (does not rotate with the gem) ----
+                // ---- Cast shadow on the felt (pre-rendered, does not rotate with the gem) ----
+                const shadowScale = R / shadowSprite.R;
                 ctx.save();
-                ctx.translate(centerX, centerY);
-                const shGrad = ctx.createRadialGradient(0, R * 0.75, R * 0.15, 0, R * 0.8, R * 1.15);
-                shGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
-                shGrad.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = shGrad;
-                ctx.beginPath();
-                ctx.ellipse(0, R * 0.8 + this.lift * 6, R * 1.05, R * 0.42, 0, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.translate(centerX, centerY + this.lift * 6);
+                ctx.scale(shadowScale, shadowScale);
+                ctx.drawImage(shadowSprite.canvas, -shadowSprite.size / 2, -shadowSprite.size / 2);
                 ctx.restore();
 
                 // ---- Pre-rendered gem (halo + body + facets + table + girdle) ----
@@ -1386,10 +1401,9 @@
                 ctx.drawImage(sprite.canvas, -sprite.size / 2, -sprite.size / 2);
                 ctx.restore();
 
-                // ---- Specular glints (fixed relative to light, gentle shimmer) ----
+                // ---- Specular glint (fixed relative to light, gentle shimmer) ----
                 const twinkle = 0.7 + 0.3 * Math.sin(time * 0.06 + this.shimmer);
                 drawGlint(centerX - R * 0.33, centerY - R * 0.4, R * 0.34 * twinkle, 0.95);
-                drawGlint(centerX + R * 0.28, centerY + R * 0.22, R * 0.16 * twinkle, 0.7);
             }
 
             update() {
@@ -1421,7 +1435,7 @@
         }
 
         function createSparkles(x, y, color) {
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < 5; i++) {
                 sparkles.push(new Sparkle(x, y, color));
             }
         }

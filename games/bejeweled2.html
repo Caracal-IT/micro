@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emerald Casino Bejeweled</title>
+    <title>Casino Bejeweled</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:wght@400;700&display=swap');
 
@@ -576,7 +576,7 @@
         <img src="casino-slots-bg.jpg" alt="">
     </div>
     <div class="title-plaque">
-        <div id="casino-title">♦ Emerald Casino Royale ♦</div>
+        <div id="casino-title">♦ Casino Royale ♦</div>
     </div>
     <div class="ui">
         <div class="score">💎 Score: <span id="score">0</span></div>
@@ -1033,15 +1033,253 @@
         }
 
         // rounded-rect path helper (works even without native ctx.roundRect)
-        function roundRectPath(x, y, w, h, r) {
-            ctx.beginPath();
-            ctx.moveTo(x + r, y);
-            ctx.arcTo(x + w, y, x + w, y + h, r);
-            ctx.arcTo(x + w, y + h, x, y + h, r);
-            ctx.arcTo(x, y + h, x, y, r);
-            ctx.arcTo(x, y, x + w, y, r);
-            ctx.closePath();
+        function roundRectPath(c, x, y, w, h, r) {
+            c.beginPath();
+            c.moveTo(x + r, y);
+            c.arcTo(x + w, y, x + w, y + h, r);
+            c.arcTo(x + w, y + h, x, y + h, r);
+            c.arcTo(x, y + h, x, y, r);
+            c.arcTo(x, y, x + w, y, r);
+            c.closePath();
         }
+
+        /* ---- Colour helpers (module-level so sprite pre-rendering can use them too) ---- */
+        function hexToHSL(hex) {
+            let r = parseInt(hex.substring(1, 3), 16) / 255;
+            let g = parseInt(hex.substring(3, 5), 16) / 255;
+            let b = parseInt(hex.substring(5, 7), 16) / 255;
+
+            let max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0;
+            } else {
+                let d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return { h: h * 360, s: s * 100, l: l * 100 };
+        }
+
+        function hslToHex(h, s, l) {
+            s /= 100;
+            l /= 100;
+            let c = (1 - Math.abs(2 * l - 1)) * s;
+            let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+            let m = l - c / 2;
+            let r, g, b;
+
+            if (h < 60) { r = c; g = x; b = 0; }
+            else if (h < 120) { r = x; g = c; b = 0; }
+            else if (h < 180) { r = 0; g = c; b = x; }
+            else if (h < 240) { r = 0; g = x; b = c; }
+            else if (h < 300) { r = x; g = 0; b = c; }
+            else { r = c; g = 0; b = x; }
+
+            return `rgb(${Math.round((r + m) * 255)}, ${Math.round((g + m) * 255)}, ${Math.round((b + m) * 255)})`;
+        }
+
+        function hslToHexA(h, s, l, a) {
+            return hslToHex(h, s, l).replace('rgb(', 'rgba(').replace(')', `, ${a})`);
+        }
+
+        /* ---- Pre-rendered gem sprites ----
+           All the expensive per-gem work (gradients, facet fills, HSL math) used to run
+           EVERY frame for all 64 gems — the single biggest cause of the game being
+           unplayably slow on phones. Instead we bake each colour's fully-shaded gem
+           (halo + body + facets + table + girdle) into an offscreen canvas once, and at
+           draw time just transform + drawImage it. The halo is radially symmetric so
+           baking it into the rotating sprite is visually identical to drawing it separately. */
+        function buildGemSprite(color, shape) {
+            const R = GEM_SIZE * 0.4;
+            const size = Math.ceil(R * 1.35 * 2 + 4);
+            const c = document.createElement('canvas');
+            c.width = c.height = size;
+            const g = c.getContext('2d');
+            const hsl = hexToHSL(color);
+            const LX = -0.55, LY = -0.83;
+            const shade = (dirX, dirY, lo, spread) => {
+                const len = Math.hypot(dirX, dirY) || 1;
+                const d = (dirX / len) * LX + (dirY / len) * LY;
+                const t = (d + 1) / 2;
+                const l = clamp(hsl.l * (lo + t * spread), 4, 96);
+                return hslToHex(hsl.h, hsl.s, l);
+            };
+
+            g.save();
+            g.translate(size / 2, size / 2);
+
+            const halo = g.createRadialGradient(0, 0, R * 0.4, 0, 0, R * 1.35);
+            halo.addColorStop(0, hslToHexA(hsl.h, hsl.s, Math.min(70, hsl.l + 12), 0.5));
+            halo.addColorStop(1, hslToHexA(hsl.h, hsl.s, hsl.l, 0));
+            g.fillStyle = halo;
+            g.beginPath();
+            g.arc(0, 0, R * 1.35, 0, Math.PI * 2);
+            g.fill();
+
+            const outer = gemOutline(shape, R);
+            const N = outer.length;
+            const tableScale = 0.52;
+            const table = outer.map(([x, y]) => [x * tableScale, y * tableScale]);
+
+            const body = g.createRadialGradient(-R * 0.3, -R * 0.35, R * 0.1, 0, 0, R * 1.05);
+            body.addColorStop(0, hslToHex(hsl.h, hsl.s, clamp(hsl.l * 1.35, 0, 96)));
+            body.addColorStop(0.55, color);
+            body.addColorStop(1, hslToHex(hsl.h, hsl.s, clamp(hsl.l * 0.4, 0, 100)));
+            g.fillStyle = body;
+            g.beginPath();
+            outer.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+            g.closePath();
+            g.fill();
+
+            for (let i = 0; i < N; i++) {
+                const j = (i + 1) % N;
+                const mx = (outer[i][0] + outer[j][0]) / 2;
+                const my = (outer[i][1] + outer[j][1]) / 2;
+                g.fillStyle = shade(mx, my, 0.5, 1.15);
+                g.beginPath();
+                g.moveTo(table[i][0], table[i][1]);
+                g.lineTo(outer[i][0], outer[i][1]);
+                g.lineTo(outer[j][0], outer[j][1]);
+                g.lineTo(table[j][0], table[j][1]);
+                g.closePath();
+                g.fill();
+            }
+
+            for (let i = 0; i < N; i++) {
+                const j = (i + 1) % N;
+                const mx = (table[i][0] + table[j][0]) / 2;
+                const my = (table[i][1] + table[j][1]) / 2;
+                g.fillStyle = shade(mx, my, 0.7, 1.25);
+                g.beginPath();
+                g.moveTo(0, 0);
+                g.lineTo(table[i][0], table[i][1]);
+                g.lineTo(table[j][0], table[j][1]);
+                g.closePath();
+                g.fill();
+            }
+
+            const topGrad = g.createLinearGradient(-R * tableScale, -R * tableScale, R * tableScale, R * tableScale);
+            topGrad.addColorStop(0, hslToHexA(hsl.h, hsl.s, clamp(hsl.l * 1.55, 0, 98), 0.95));
+            topGrad.addColorStop(0.5, hslToHexA(hsl.h, hsl.s, hsl.l, 0.35));
+            topGrad.addColorStop(1, hslToHexA(hsl.h, hsl.s, clamp(hsl.l * 0.8, 0, 100), 0.55));
+            g.fillStyle = topGrad;
+            g.beginPath();
+            table.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+            g.closePath();
+            g.fill();
+
+            g.strokeStyle = 'rgba(255,255,255,0.16)';
+            g.lineWidth = R * 0.02;
+            for (let i = 0; i < N; i++) {
+                g.beginPath();
+                g.moveTo(0, 0);
+                g.lineTo(table[i][0], table[i][1]);
+                g.stroke();
+            }
+
+            g.lineWidth = R * 0.05;
+            for (let i = 0; i < N; i++) {
+                const j = (i + 1) % N;
+                const mx = (outer[i][0] + outer[j][0]) / 2;
+                const my = (outer[i][1] + outer[j][1]) / 2;
+                const len = Math.hypot(mx, my) || 1;
+                const d = (mx / len) * LX + (my / len) * LY;
+                g.strokeStyle = d > 0
+                    ? `rgba(255,255,255,${(0.18 + 0.45 * d).toFixed(3)})`
+                    : `rgba(0,0,0,${(0.12 + 0.32 * -d).toFixed(3)})`;
+                g.beginPath();
+                g.moveTo(outer[i][0], outer[i][1]);
+                g.lineTo(outer[j][0], outer[j][1]);
+                g.stroke();
+            }
+
+            g.restore();
+            return { canvas: c, size, R };
+        }
+
+        const gemSpriteCache = new Map();
+        function getGemSprite(color) {
+            let sprite = gemSpriteCache.get(color);
+            if (!sprite) {
+                sprite = buildGemSprite(color, GEM_SHAPES[COLORS.indexOf(color)] || 'round');
+                gemSpriteCache.set(color, sprite);
+            }
+            return sprite;
+        }
+
+        /* Soft 4-point specular glint, pre-blurred once instead of paying for
+           ctx.shadowBlur on every gem, every frame (2 glints x 64 gems x 60fps). */
+        const glintSprite = (() => {
+            const R = 32;
+            const size = Math.ceil(R * 1.6 * 2 + 8);
+            const c = document.createElement('canvas');
+            c.width = c.height = size;
+            const g = c.getContext('2d');
+            g.translate(size / 2, size / 2);
+            g.globalCompositeOperation = 'lighter';
+            g.fillStyle = 'rgba(255,255,255,0.95)';
+            g.shadowColor = 'rgba(255,255,255,0.9)';
+            g.shadowBlur = R * 1.6;
+            g.beginPath();
+            g.moveTo(0, -R);
+            g.lineTo(R * 0.22, -R * 0.22);
+            g.lineTo(R, 0);
+            g.lineTo(R * 0.22, R * 0.22);
+            g.lineTo(0, R);
+            g.lineTo(-R * 0.22, R * 0.22);
+            g.lineTo(-R, 0);
+            g.lineTo(-R * 0.22, -R * 0.22);
+            g.closePath();
+            g.fill();
+            return { canvas: c, size, R };
+        })();
+
+        function drawGlint(x, y, s, alpha) {
+            const scale = s / glintSprite.R;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = alpha;
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.drawImage(glintSprite.canvas, -glintSprite.size / 2, -glintSprite.size / 2);
+            ctx.restore();
+        }
+
+        /* Static felt background baked once — it never changes frame to frame, so
+           recomputing 64 gradients + rounded-rect fills every frame was pure waste. */
+        const feltCanvas = document.createElement('canvas');
+        feltCanvas.width = GRID_SIZE * GEM_SIZE;
+        feltCanvas.height = GRID_SIZE * GEM_SIZE;
+        (function buildFelt() {
+            const fctx = feltCanvas.getContext('2d');
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const x = c * GEM_SIZE, y = r * GEM_SIZE;
+                    const pad = 4, rad = 14;
+                    const g = fctx.createLinearGradient(x, y, x, y + GEM_SIZE);
+                    if ((r + c) % 2 === 0) {
+                        g.addColorStop(0, 'rgba(0,0,0,0.42)');
+                        g.addColorStop(1, 'rgba(10,58,38,0.30)');
+                    } else {
+                        g.addColorStop(0, 'rgba(0,0,0,0.30)');
+                        g.addColorStop(1, 'rgba(10,58,38,0.18)');
+                    }
+                    roundRectPath(fctx, x + pad, y + pad, GEM_SIZE - pad * 2, GEM_SIZE - pad * 2, rad);
+                    fctx.fillStyle = g;
+                    fctx.fill();
+                    fctx.strokeStyle = 'rgba(0,0,0,0.35)';
+                    fctx.lineWidth = 1.5;
+                    fctx.stroke();
+                }
+            }
+        })();
 
         class Sparkle {
             constructor(x, y, color) {
@@ -1070,13 +1308,19 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rotation);
-                ctx.globalAlpha = this.alpha;
-                
-                // Main sparkle
+                ctx.globalCompositeOperation = 'lighter';
+
+                // Soft glow halo — cheap stand-in for ctx.shadowBlur, which is
+                // expensive enough per-particle to tank frame rate on phones.
+                ctx.globalAlpha = this.alpha * 0.35;
                 ctx.fillStyle = this.color;
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = 20;
-                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size * 0.9, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Main sparkle
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
                 ctx.beginPath();
                 if (this.sparklePattern === 1) {
                     ctx.rect(-this.size/2, -this.size/2, this.size, this.size);
@@ -1090,14 +1334,13 @@
                     ctx.arc(0, 0, this.size/2, 0, Math.PI * 2);
                 }
                 ctx.fill();
-                
+
                 // Inner highlight
                 ctx.fillStyle = 'rgba(255,255,255,0.8)';
-                ctx.shadowBlur = 10;
                 ctx.beginPath();
                 ctx.arc(0, 0, this.size/4, 0, Math.PI * 2);
                 ctx.fill();
-                
+
                 ctx.restore();
             }
         }
@@ -1125,22 +1368,10 @@
                 const centerX = this.x + GEM_SIZE / 2;
                 const centerY = this.y + GEM_SIZE / 2 - this.lift * 7;
                 const R = this.radius * this.scale * (1 + this.lift * 0.14);
-                const hsl = this.hexToHSL(this.color);
-
-                // Facet shading: brightness from a fixed upper-left light direction
-                const LX = -0.55, LY = -0.83;
-                const shade = (dirX, dirY, lo, spread) => {
-                    const len = Math.hypot(dirX, dirY) || 1;
-                    const d = (dirX / len) * LX + (dirY / len) * LY; // -1..1
-                    const t = (d + 1) / 2;
-                    const l = clamp(hsl.l * (lo + t * spread), 4, 96);
-                    return this.hslToHex(hsl.h, hsl.s, l);
-                };
-
-                ctx.save();
-                ctx.translate(centerX, centerY);
 
                 // ---- Cast shadow on the felt (does not rotate with the gem) ----
+                ctx.save();
+                ctx.translate(centerX, centerY);
                 const shGrad = ctx.createRadialGradient(0, R * 0.75, R * 0.15, 0, R * 0.8, R * 1.15);
                 shGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
                 shGrad.addColorStop(1, 'rgba(0,0,0,0)');
@@ -1148,212 +1379,22 @@
                 ctx.beginPath();
                 ctx.ellipse(0, R * 0.8 + this.lift * 6, R * 1.05, R * 0.42, 0, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.restore();
 
-                // ---- Colored halo behind the stone ----
-                const halo = ctx.createRadialGradient(0, 0, R * 0.4, 0, 0, R * 1.35);
-                halo.addColorStop(0, this.hslToHexA(hsl.h, hsl.s, Math.min(70, hsl.l + 12), 0.5));
-                halo.addColorStop(1, this.hslToHexA(hsl.h, hsl.s, hsl.l, 0));
-                ctx.fillStyle = halo;
-                ctx.beginPath();
-                ctx.arc(0, 0, R * 1.35, 0, Math.PI * 2);
-                ctx.fill();
-
+                // ---- Pre-rendered gem (halo + body + facets + table + girdle) ----
+                const sprite = getGemSprite(this.color);
+                const spriteScale = R / sprite.R;
+                ctx.save();
+                ctx.translate(centerX, centerY);
                 ctx.rotate(this.rotation);
-
-                // ---- Geometry: this cut's girdle outline + inner table ----
-                const outer = gemOutline(this.shape, R);
-                const N = outer.length;
-                const tableScale = 0.52;
-                const table = outer.map(([x, y]) => [x * tableScale, y * tableScale]);
-
-                // ---- Pavilion base: deep radial body for volume ----
-                const body = ctx.createRadialGradient(-R * 0.3, -R * 0.35, R * 0.1, 0, 0, R * 1.05);
-                body.addColorStop(0, this.hslToHex(hsl.h, hsl.s, clamp(hsl.l * 1.35, 0, 96)));
-                body.addColorStop(0.55, this.color);
-                body.addColorStop(1, this.hslToHex(hsl.h, hsl.s, clamp(hsl.l * 0.4, 0, 100)));
-                ctx.fillStyle = body;
-                ctx.beginPath();
-                outer.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-                ctx.closePath();
-                ctx.fill();
-
-                // ---- Crown facets: bevel ring between girdle and table ----
-                for (let i = 0; i < N; i++) {
-                    const j = (i + 1) % N;
-                    const mx = (outer[i][0] + outer[j][0]) / 2;
-                    const my = (outer[i][1] + outer[j][1]) / 2;
-                    ctx.fillStyle = shade(mx, my, 0.5, 1.15);
-                    ctx.beginPath();
-                    ctx.moveTo(table[i][0], table[i][1]);
-                    ctx.lineTo(outer[i][0], outer[i][1]);
-                    ctx.lineTo(outer[j][0], outer[j][1]);
-                    ctx.lineTo(table[j][0], table[j][1]);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-
-                // ---- Star facets: triangles from table edges to center ----
-                for (let i = 0; i < N; i++) {
-                    const j = (i + 1) % N;
-                    const mx = (table[i][0] + table[j][0]) / 2;
-                    const my = (table[i][1] + table[j][1]) / 2;
-                    ctx.fillStyle = shade(mx, my, 0.7, 1.25);
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.lineTo(table[i][0], table[i][1]);
-                    ctx.lineTo(table[j][0], table[j][1]);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-
-                // ---- Glassy table top ----
-                const topGrad = ctx.createLinearGradient(-R * tableScale, -R * tableScale, R * tableScale, R * tableScale);
-                topGrad.addColorStop(0, this.hslToHexA(hsl.h, hsl.s, clamp(hsl.l * 1.55, 0, 98), 0.95));
-                topGrad.addColorStop(0.5, this.hslToHexA(hsl.h, hsl.s, hsl.l, 0.35));
-                topGrad.addColorStop(1, this.hslToHexA(hsl.h, hsl.s, clamp(hsl.l * 0.8, 0, 100), 0.55));
-                ctx.fillStyle = topGrad;
-                ctx.beginPath();
-                table.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-                ctx.closePath();
-                ctx.fill();
-
-                // faint facet lines on the table for crystalline detail
-                ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-                ctx.lineWidth = R * 0.02;
-                for (let i = 0; i < N; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.lineTo(table[i][0], table[i][1]);
-                    ctx.stroke();
-                }
-
-                // ---- Girdle rim: bright edges on the lit side, dark on the far side ----
-                ctx.lineWidth = R * 0.05;
-                for (let i = 0; i < N; i++) {
-                    const j = (i + 1) % N;
-                    const mx = (outer[i][0] + outer[j][0]) / 2;
-                    const my = (outer[i][1] + outer[j][1]) / 2;
-                    const len = Math.hypot(mx, my) || 1;
-                    const d = (mx / len) * LX + (my / len) * LY;
-                    ctx.strokeStyle = d > 0
-                        ? `rgba(255,255,255,${(0.18 + 0.45 * d).toFixed(3)})`
-                        : `rgba(0,0,0,${(0.12 + 0.32 * -d).toFixed(3)})`;
-                    ctx.beginPath();
-                    ctx.moveTo(outer[i][0], outer[i][1]);
-                    ctx.lineTo(outer[j][0], outer[j][1]);
-                    ctx.stroke();
-                }
-
-                ctx.restore(); // drop rotation for screen-fixed speculars
+                ctx.scale(spriteScale, spriteScale);
+                ctx.drawImage(sprite.canvas, -sprite.size / 2, -sprite.size / 2);
+                ctx.restore();
 
                 // ---- Specular glints (fixed relative to light, gentle shimmer) ----
                 const twinkle = 0.7 + 0.3 * Math.sin(time * 0.06 + this.shimmer);
-                this.drawSparkleStar(centerX - R * 0.33, centerY - R * 0.4, R * 0.34 * twinkle, 'rgba(255,255,255,0.95)');
-                this.drawSparkleStar(centerX + R * 0.28, centerY + R * 0.22, R * 0.16 * twinkle, 'rgba(255,255,255,0.7)');
-            }
-
-            // Four-point sparkle used for gem speculars
-            drawSparkleStar(x, y, s, color) {
-                ctx.save();
-                ctx.translate(x, y);
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = color;
-                ctx.shadowColor = 'rgba(255,255,255,0.9)';
-                ctx.shadowBlur = s * 1.6;
-                ctx.beginPath();
-                ctx.moveTo(0, -s);
-                ctx.lineTo(s * 0.22, -s * 0.22);
-                ctx.lineTo(s, 0);
-                ctx.lineTo(s * 0.22, s * 0.22);
-                ctx.lineTo(0, s);
-                ctx.lineTo(-s * 0.22, s * 0.22);
-                ctx.lineTo(-s, 0);
-                ctx.lineTo(-s * 0.22, -s * 0.22);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
-            }
-
-            hslToHexA(h, s, l, a) {
-                const rgb = this.hslToHex(h, s, l); // returns rgb(...)
-                return rgb.replace('rgb(', 'rgba(').replace(')', `, ${a})`);
-            }
-            
-            getLightColor(color, multiplier) {
-                const hsl = this.hexToHSL(color);
-                return this.hslToHex(
-                    hsl.h, 
-                    hsl.s, 
-                    Math.min(100, hsl.l * multiplier)
-                );
-            }
-            
-            getMediumColor(color, multiplier) {
-                const hsl = this.hexToHSL(color);
-                return this.hslToHex(
-                    hsl.h, 
-                    hsl.s, 
-                    hsl.l * multiplier
-                );
-            }
-            
-            getDarkColor(color, multiplier) {
-                const hsl = this.hexToHSL(color);
-                return this.hslToHex(
-                    hsl.h, 
-                    hsl.s, 
-                    hsl.l * multiplier
-                );
-            }
-            
-            getDarkestColor(color, multiplier) {
-                const hsl = this.hexToHSL(color);
-                return this.hslToHex(
-                    hsl.h, 
-                    hsl.s, 
-                    Math.max(0, hsl.l * multiplier)
-                );
-            }
-            
-            hexToHSL(hex) {
-                let r = parseInt(hex.substring(1, 3), 16) / 255;
-                let g = parseInt(hex.substring(3, 5), 16) / 255;
-                let b = parseInt(hex.substring(5, 7), 16) / 255;
-                
-                let max = Math.max(r, g, b), min = Math.min(r, g, b);
-                let h, s, l = (max + min) / 2;
-                
-                if (max === min) {
-                    h = s = 0; 
-                } else {
-                    let d = max - min;
-                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                    switch (max) {
-                        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                        case g: h = (b - r) / d + 2; break;
-                        case b: h = (r - g) / d + 4; break;
-                    }
-                    h /= 6;
-                }
-                return { h: h * 360, s: s * 100, l: l * 100 };
-            }
-            
-            hslToHex(h, s, l) {
-                s /= 100;
-                l /= 100;
-                let c = (1 - Math.abs(2 * l - 1)) * s;
-                let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-                let m = l - c / 2;
-                let r, g, b;
-                
-                if (h < 60) { r = c; g = x; b = 0; }
-                else if (h < 120) { r = x; g = c; b = 0; }
-                else if (h < 180) { r = 0; g = c; b = x; }
-                else if (h < 240) { r = 0; g = x; b = c; }
-                else if (h < 300) { r = x; g = 0; b = c; }
-                else { r = c; g = 0; b = x; }
-                
-                return `rgb(${Math.round((r + m) * 255)}, ${Math.round((g + m) * 255)}, ${Math.round((b + m) * 255)})`;
+                drawGlint(centerX - R * 0.33, centerY - R * 0.4, R * 0.34 * twinkle, 0.95);
+                drawGlint(centerX + R * 0.28, centerY + R * 0.22, R * 0.16 * twinkle, 0.7);
             }
 
             update() {
@@ -1396,33 +1437,13 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // --- Felt pockets: subtle recessed cells with a chequered emerald tint ---
-            for (let r = 0; r < GRID_SIZE; r++) {
-                for (let c = 0; c < GRID_SIZE; c++) {
-                    const x = c * GEM_SIZE, y = r * GEM_SIZE;
-                    const pad = 4, rad = 14;
-                    const g = ctx.createLinearGradient(x, y, x, y + GEM_SIZE);
-                    if ((r + c) % 2 === 0) {
-                        g.addColorStop(0, 'rgba(0,0,0,0.42)');
-                        g.addColorStop(1, 'rgba(10,58,38,0.30)');
-                    } else {
-                        g.addColorStop(0, 'rgba(0,0,0,0.30)');
-                        g.addColorStop(1, 'rgba(10,58,38,0.18)');
-                    }
-                    roundRectPath(x + pad, y + pad, GEM_SIZE - pad * 2, GEM_SIZE - pad * 2, rad);
-                    ctx.fillStyle = g;
-                    ctx.fill();
-                    // inner top shadow line for depth
-                    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-                }
-            }
+            // --- Felt pockets: baked once into feltCanvas, just blit it ---
+            ctx.drawImage(feltCanvas, 0, 0);
 
             // --- Hover highlight ---
             if (hoverRow >= 0 && !isSwapping) {
                 const x = hoverCol * GEM_SIZE, y = hoverRow * GEM_SIZE;
-                roundRectPath(x + 4, y + 4, GEM_SIZE - 8, GEM_SIZE - 8, 14);
+                roundRectPath(ctx, x + 4, y + 4, GEM_SIZE - 8, GEM_SIZE - 8, 14);
                 ctx.fillStyle = 'rgba(255,215,0,0.07)';
                 ctx.fill();
             }
@@ -1461,7 +1482,7 @@
                 ctx.lineWidth = 3 + pulse * 2;
                 ctx.shadowColor = wildcardMode ? '#FF8C00' : '#FFD700';
                 ctx.shadowBlur = 14 + pulse * 16;
-                roundRectPath(x + 5, y + 5, GEM_SIZE - 10, GEM_SIZE - 10, 16);
+                roundRectPath(ctx, x + 5, y + 5, GEM_SIZE - 10, GEM_SIZE - 10, 16);
                 ctx.stroke();
                 ctx.restore();
             }

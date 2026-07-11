@@ -238,14 +238,14 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: clamp(10px, 3vw, 40px);
-            margin-bottom: 25px;
+            gap: clamp(8px, 2vw, 28px);
+            margin-bottom: 18px;
             max-width: 94vw;
             position: relative;
             z-index: 1;
             align-items: center;
             font-family: 'Playfair Display', serif;
-            font-size: clamp(16px, 3.5vw, 32px);
+            font-size: clamp(14px, 2.6vw, 28px);
             font-weight: bold;
         }
 
@@ -253,9 +253,9 @@
             background: linear-gradient(145deg, #fff3c4 0%, #ffd700 45%, #b8860b 100%);
             border: 2px solid #fff3c4;
             border-radius: 50%;
-            width: 58px;
-            height: 58px;
-            font-size: 26px;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
             cursor: pointer;
             color: #2a1c00;
             box-shadow: 0 5px 20px rgba(0,0,0,0.6), 0 0 22px rgba(255,215,0,0.45);
@@ -271,18 +271,15 @@
             filter: grayscale(0.55) brightness(0.85);
         }
 
-        /* Overlaid on the board's bottom-right corner (not hung below it) so it
-           costs zero extra vertical space — the layout used to reserve ~75px of
-           dead space below the board just to clear these buttons, which pushed
-           the board itself off-screen on short mobile viewports. */
+        /* Its own compact row below the board — not floating over the gems,
+           and not competing with the top control row for space. */
         .sound-controls {
-            position: absolute;
-            right: 10px;
-            bottom: 10px;
             display: flex;
+            justify-content: center;
             gap: 10px;
-            z-index: 2;
-            opacity: 0.82;
+            margin-top: 14px;
+            position: relative;
+            z-index: 1;
         }
 
         .new-game-btn {
@@ -559,8 +556,8 @@
         /* Small-phone tightening */
         @media (max-width: 420px) {
             body { padding: 10px 12px; }
-            #sound-toggle, #music-toggle { width: 40px; height: 40px; font-size: 18px; }
-            .sound-controls { bottom: 6px; right: 6px; gap: 8px; }
+            #sound-toggle, #music-toggle { width: 36px; height: 36px; font-size: 16px; }
+            .sound-controls { gap: 6px; }
             .title-plaque { margin-bottom: 10px; }
             .ui { gap: 8px; margin-bottom: 14px; font-size: 14px; }
             .score, .moves { padding: 6px 12px; }
@@ -582,10 +579,6 @@
         <button class="new-game-btn" onclick="restartGame()">🔄 New Game</button>
         <button id="free-swap-btn" class="free-swap-btn" disabled title="Earn one every 100 points — double-click a gem, then pick any other gem to swap">🔀 Free Swap</button>
         <button id="cheat-status" class="free-swap-btn cheat-status" disabled title="Every 500 points: 3 moves where every swap is rigged to win, scoring double">🎲 Cheat Mode</button>
-        <div class="sound-controls">
-            <button id="music-toggle" class="muted" title="Toggle background music">🎵</button>
-            <button id="sound-toggle" title="Toggle sound">🔊</button>
-        </div>
     </div>
     <div id="cheat-banner"></div>
     <div id="game-container">
@@ -595,6 +588,10 @@
             <p>Your final score: <span id="final-score">0</span>💎</p>
             <button class="btn" onclick="restartGame()">Play Again</button>
         </div>
+    </div>
+    <div class="sound-controls">
+        <button id="music-toggle" class="muted" title="Toggle background music">🎵</button>
+        <button id="sound-toggle" title="Toggle sound">🔊</button>
     </div>
     <div class="rules-legend">
         <span>🔀 <strong>Free Swap</strong> — every 100 pts: double-click a gem, then click any other gem to swap them, adjacent or not, no match required</span>

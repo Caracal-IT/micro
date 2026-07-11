@@ -626,11 +626,19 @@
             // Draw players
             for (let i = 0; i < players.length; i++) {
                 if (players[i].pos > 0) {
-                    const cell = getCellCenter(players[i].pos);
-                    const offset = i === 0 ? -8 : 8;
+                    let drawX, drawY;
+                    if (animDisplay.active && animDisplay.player === i) {
+                        drawX = animDisplay.x;
+                        drawY = animDisplay.y;
+                    } else {
+                        const cell = getCellCenter(players[i].pos);
+                        const offset = i === 0 ? -8 : 8;
+                        drawX = cell.x + offset;
+                        drawY = cell.y;
+                    }
                     ctx.fillStyle = players[i].color;
                     ctx.beginPath();
-                    ctx.arc(cell.x + offset, cell.y, 10, 0, Math.PI * 2);
+                    ctx.arc(drawX, drawY, 10, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.strokeStyle = '#fff';
                     ctx.lineWidth = 2;
@@ -639,10 +647,13 @@
                     ctx.font = 'bold 9px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(players[i].name, cell.x + offset, cell.y);
+                    ctx.fillText(players[i].name, drawX, drawY);
                 }
             }
         }
+
+        // Global positions for rendering - allows Override while moving
+        let animDisplay = { x: null, y: null, active: false, player: -1 };
 
         function animateMove(player, from, to, callback) {
             let step = from;
@@ -661,6 +672,50 @@
                     updatePositions();
                     drawBoard();
                     setTimeout(callback, 200);
+                }
+            }
+            tick();
+        }
+
+        function generateLadderPath(from, to) {
+            const start = getCellCenter(from);
+            const end = getCellCenter(to);
+            const points = [];
+            const segments = 60;
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                points.push({
+                    x: start.x + dx * t,
+                    y: start.y + dy * t,
+                    t: t
+                });
+            }
+            return points;
+        }
+
+        function animateAlongPath(player, path, finalPos, callback) {
+            animDisplay.active = true;
+            animDisplay.player = player;
+            let idx = 0;
+            const speed = 16;
+
+            function tick() {
+                if (idx < path.length) {
+                    animDisplay.x = path[idx].x;
+                    animDisplay.y = path[idx].y;
+                    drawBoard();
+                    idx += speed;
+                    setTimeout(tick, 20);
+                } else {
+                    animDisplay.active = false;
+                    animDisplay.x = null;
+                    animDisplay.y = null;
+                    players[player].pos = finalPos;
+                    updatePositions();
+                    drawBoard();
+                    setTimeout(callback, 150);
                 }
             }
             tick();
@@ -693,15 +748,17 @@
 
             animateMove(currentPlayer, player.pos, newPos, () => {
                 if (snakes[newPos]) {
-                    messageEl.textContent = `${player.name} bitten by a snake!`;
+                    messageEl.textContent = `${player.name} slider down the snake!`;
                     const dest = snakes[newPos];
-                    animateMove(currentPlayer, newPos, dest, () => {
+                    const snakePath = generateSnakePath(getCellCenter(newPos), getCellCenter(dest));
+                    animateAlongPath(currentPlayer, snakePath, dest, () => {
                         finishTurn();
                     });
                 } else if (ladders[newPos]) {
                     messageEl.textContent = `${player.name} climbed a ladder!`;
                     const dest = ladders[newPos];
-                    animateMove(currentPlayer, newPos, dest, () => {
+                    const ladderPath = generateLadderPath(newPos, dest);
+                    animateAlongPath(currentPlayer, ladderPath, dest, () => {
                         finishTurn();
                     });
                 } else {

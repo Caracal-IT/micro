@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bejeweled Lite</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: sans-serif;
+        }
+        #game-container {
+            position: relative;
+            user-select: none;
+        }
+        canvas {
+            background: #000;
+            border: 4px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+        .ui {
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ui">Score: <span id="score">0</span></div>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        const GRID_SIZE = 8;
+        const GEM_SIZE = 60;
+        const COLORS = [
+            '#FF355E', // Red
+            '#66FF00', // Green
+            '#50BFE6', // Blue
+            '#FFFF33', // Yellow
+            '#FF6EFF', // Purple
+            '#FF9933'  // Orange
+        ];
+
+        canvas.width = GRID_SIZE * GEM_SIZE;
+        canvas.height = GRID_SIZE * GEM_SIZE;
+
+        let grid = [];
+        let score = 0;
+        let selectedGem = null;
+        let isSwapping = false;
+
+        class Gem {
+            constructor(row, col, color) {
+                this.row = row;
+                this.col = col;
+                this.color = color;
+                this.x = col * GEM_SIZE;
+                this.y = row * GEM_SIZE;
+                this.targetX = this.x;
+                this.targetY = this.y;
+                this.radius = GEM_SIZE * 0.35;
+            }
+
+            draw() {
+                // Draw glow
+                const gradient = ctx.createRadialGradient(
+                    this.x + GEM_SIZE/2, this.y + GEM_SIZE/2, 0,
+                    this.x + GEM_SIZE/2, this.y + GEM_SIZE/2, GEM_SIZE/2
+                );
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(1, 'rgba(0,0,0,0.5)');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x + GEM_SIZE/2, this.y + GEM_SIZE/2, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Shine effect
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.beginPath();
+                ctx.arc(this.x + GEM_SIZE/2 - 10, this.y + GEM_SIZE/2 - 10, this.radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            update() {
+                this.x += (this.targetX - this.x) * 0.2;
+                this.y += (this.targetY - this.y) * 0.2;
+            }
+        }
+
+        function initGrid() {
+            for (let r = 0; r < GRID_SIZE; r++) {
+                grid[r] = [];
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    let color;
+                    do {
+                        color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                    } while (isSetupMatch(r, c, color));
+                    grid[r][c] = new Gem(r, c, color);
+                }
+            }
+        }
+
+        function isSetupMatch(r, c, color) {
+            if (r >= 2 && grid[r-1][c].color === color && grid[r-2][c].color === color) return true;
+            if (c >= 2 && grid[r][c-1].color === color && grid[r][c-2].color === color) return true;
+            return false;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid lines
+            ctx.strokeStyle = '#333';
+            for (let i = 0; i <= GRID_SIZE; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * GEM_SIZE, 0);
+                ctx.lineTo(i * GEM_SIZE, canvas.height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * GEM_SIZE);
+                ctx.lineTo(canvas.width, i * GEM_SIZE);
+                ctx.stroke();
+            }
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    grid[r][c].update();
+                    grid[r][c].draw();
+                }
+            }
+
+            if (selectedGem) {
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(selectedGem.col * GEM_SIZE + 2, selectedGem.row * GEM_SIZE + 2, GEM_SIZE - 4, GEM_SIZE - 4);
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (isSwapping) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const col = Math.floor(x / GEM_SIZE);
+            const row = Math.floor(y / GEM_SIZE);
+
+            if (!selectedGem) {
+                selectedGem = grid[row][col];
+            } else {
+                const dist = Math.abs(selectedGem.row - row) + Math.abs(selectedGem.col - col);
+                if (dist === 1) {
+                    swapGems(selectedGem, grid[row][col]);
+                } else {
+                    selectedGem = grid[row][col];
+                }
+            }
+        });
+
+        async function swapGems(gem1, gem2) {
+            isSwapping = true;
+            const r1 = gem1.row;
+            const c1 = gem1.col;
+            const r2 = gem2.row;
+            const c2 = gem2.col;
+
+            // Swap positions in grid
+            const temp = grid[r1][c1];
+            grid[r1][c1] = grid[r2][c2];
+            grid[r2][c2] = temp;
+
+            // Update targets for animation
+            gem1.targetX = c2 * GEM_SIZE;
+            gem1.targetY = r2 * GEM_SIZE;
+            gem2.targetX = c1 * GEM_SIZE;
+            gem2.targetY = r1 * GEM_SIZE;
+            
+            gem1.row = r2; gem1.col = c2;
+            gem2.row = r1; gem2.col = c1;
+
+            // Wait for animation
+            await new Promise(r => setTimeout(r, 300));
+
+            if (!checkMatches()) {
+                // Swap back if no match
+                const temp2 = grid[r1][c1];
+                grid[r1][c1] = grid[r2][c2];
+                grid[r2][c2] = temp2;
+                gem1.targetX = c1 * GEM_SIZE;
+                gem1.targetY = r1 * GEM_SIZE;
+                gem2.targetX = c2 * GEM_SIZE;
+                gem2.targetY = r2 * GEM_SIZE;
+                gem1.row = r1; gem1.col = c1;
+                gem2.row = r2; gem2.col = c2;
+                await new Promise(r => setTimeout(r, 300));
+            } else {
+                handleMatches();
+            }
+            
+            selectedGem = null;
+            isSwapping = false;
+        }
+
+        function checkMatches() {
+            // Horizontal
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE - 2; c++) {
+                    if (grid[r][c].color === grid[r][c+1].color && grid[r][c].color === grid[r][c+2].color) return true;
+                }
+            }
+            // Vertical
+            for (let c = 0; c < GRID_SIZE; c++) {
+                for (let r = 0; r < GRID_SIZE - 2; r++) {
+                    if (grid[r][c].color === grid[r+1][c].color && grid[r][c].color === grid[r+2][c].color) return true;
+                }
+            }
+            return false;
+        }
+
+        async function handleMatches() {
+            let matched = true;
+            while (matched) {
+                let toRemove = new Set();
+
+                // Find horizontal matches
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE - 2; c++) {
+                        if (grid[r][c].color === grid[r][c+1].color && grid[r][c].color === grid[r][c+2].color) {
+                            toRemove.add(grid[r][c]);
+                            toRemove.add(grid[r][c+1]);
+                            toRemove.add(grid[r][c+2]);
+                        }
+                    }
+                }
+                // Find vertical matches
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    for (let r = 0; r < GRID_SIZE - 2; r++) {
+                        if (grid[r][c].color === grid[r+1][c].color && grid[r][c].color === grid[r+2][c].color) {
+                            toRemove.add(grid[r][c]);
+                            toRemove.add(grid[r+1][c]);
+                            toRemove.add(grid[r+2][c]);
+                        }
+                    }
+                }
+
+                if (toRemove.size === 0) {
+                    matched = false;
+                    break;
+                }
+
+                score += toRemove.size * 10;
+                scoreElement.innerText = score;
+
+                // Remove gems (set to null temporarily)
+                toRemove.forEach(gem => {
+                    grid[gem.row][gem.col] = null;
+                });
+
+                // Drop gems down
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    let emptySlots = 0;
+                    for (let r = GRID_SIZE - 1; r >= 0; r--) {
+                        if (grid[r][c] === null) {
+                            emptySlots++;
+                        } else if (emptySlots > 0) {
+                            const gem = grid[r][c];
+                            grid[r + emptySlots][c] = gem;
+                            gem.row = r + emptySlots;
+                            gem.col = c;
+                            gem.targetY = gem.row * GEM_SIZE;
+                            grid[r][c] = null;
+                        }
+                    }
+                    // Fill new gems at top
+                    for (let i = 0; i < emptySlots; i++) {
+                        const r = i;
+                        const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                        const newGem = new Gem(r, c, color);
+                        newGem.targetY = (GRID_SIZE - 1 + i) * GEM_SIZE; // Start from below for drop-in effect
+                        grid[r][c] = newGem;
+                    }
+                }
+
+                // Update visual positions for newly dropped gems
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        const gem = grid[r][c];
+                        gem.targetX = c * GEM_SIZE;
+                        gem.targetY = r * GEM_SIZE;
+                    }
+                }
+
+                await new Promise(r => setTimeout(r, 300));
+            }
+        }
+
+        initGrid();
+        draw();
+    </script>
+</body>
+</html>

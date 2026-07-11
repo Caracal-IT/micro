@@ -1,0 +1,555 @@
+:root {
+    --emerald-black: #001a0f;
+    --emerald-dark: #002818;
+    --emerald-midnight: #004d32;
+    --emerald-green: #00d26a;
+    --emerald-light: #4deeea;
+    --emerald-glow: #00ff88;
+    --emerald-white: #ffffff;
+    --emerald-amber: #c9a227;
+    --emerald-red: #c92a2a;
+    --emerald-gem-white: #e8f4f8;
+    --emerald-glass: rgba(0, 30, 20, 0.95);
+    --emerald-gradient: linear-gradient(135deg, var(--emerald-dark) 0%, var(--emerald-midnight) 30%, var(--emerald-black) 100%);
+    --emerald-overlay: rgba(0, 80, 50, 0.75);
+    --emerald-gradient-light: linear-gradient(135deg, var(--emerald-green) 0%, var(--emerald-light) 50%, var(--emerald-glow) 100%);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--casino-gradient);
+    color: var(--casino-gold-light);
+    font-family: 'Playfair Display', 'Times New Roman', serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(ellipse at 50% 0%, rgba(107, 33, 168, 0.3) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 80%, rgba(20, 20, 35, 0.8) 0%, transparent 60%),
+        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="marble" patternUnits="userSpaceOnUse" width="100" height="100"><rect fill="%230d0d1a" width="100" height="100"/><circle cx="50" cy="50" r="30" fill="rgba(255,255,255,0.02)"/></pattern></defs><rect fill="url(%23marble)" width="100%" height="100%"/></svg>');
+    background-blend-mode: overlay, normal;
+    pointer-events: none;
+    z-index: -1;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--emerald-black);
+    background-image: 
+        radial-gradient(ellipse at 50% 0%, rgba(0, 210, 106, 0.25) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 30%, rgba(77, 238, 234, 0.2) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 70%, rgba(0, 210, 106, 0.15) 0%, transparent 50%),
+        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="emerald-mesh" patternUnits="userSpaceOnUse" width="100" height="100"><rect fill="%23001a0f" width="100" height="100"/><circle cx="50" cy="50" r="40" fill="rgba(0,210,106,0.03)"/></pattern></defs><rect fill="url(%23emerald-mesh)" width="100%" height="100%"/></svg>');
+    color: var(--emerald-amber);
+    font-family: 'Playfair Display', 'Times New Roman', serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+}
+
+.navbar {
+    background: linear-gradient(180deg, rgba(0, 26, 15, 0.98) 0%, rgba(0, 40, 24, 0.98) 100%);
+    border-bottom: 2px solid rgba(0, 210, 106, 0.6);
+    box-shadow: 
+        0 4px 30px rgba(0, 210, 106, 0.2),
+        0 0 30px rgba(0, 210, 106, 0.15),
+        inset 0 1px 0 rgba(0, 210, 106, 0.2);
+    padding: 1rem 2rem;
+    position: relative;
+    backdrop-filter: blur(10px);
+}
+
+.navbar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--casino-gold-glow), transparent);
+    box-shadow: 0 0 10px var(--casino-gold-glow);
+}
+
+.navbar-brand {
+    color: var(--emerald-glow) !important;
+    font-size: 1.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    text-shadow: 
+        0 2px 4px rgba(0, 26, 15, 0.8),
+        0 0 30px rgba(0, 210, 106, 0.5),
+        0 0 60px rgba(0, 210, 106, 0.3);
+    border: 2px solid rgba(0, 210, 106, 0.5);
+    padding: 0.6rem 2rem;
+    border-radius: 10px;
+    background: radial-gradient(ellipse at center, rgba(0, 210, 106, 0.1) 0%, rgba(0, 40, 24, 0.2) 100%);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 210, 106, 0.2);
+}
+
+.navbar-brand:hover {
+    color: #ffffff !important;
+    text-shadow: 
+        0 2px 4px rgba(0, 26, 15, 0.8),
+        0 0 40px rgba(0, 210, 106, 0.8),
+        0 0 80px rgba(0, 210, 106, 0.5);
+    border-color: var(--emerald-glow);
+    background: radial-gradient(ellipse at center, rgba(0, 210, 106, 0.3) 0%, rgba(0, 40, 24, 0.4) 100%);
+    transform: scale(1.08);
+    box-shadow: 0 0 40px rgba(0, 210, 106, 0.4), inset 0 0 30px rgba(0, 210, 106, 0.2);
+}
+
+.container {
+    max-width: 1200px;
+    padding: 2rem;
+    position: relative;
+}
+
+::before,
+::after {
+    content: '';
+    position: fixed;
+    pointer-events: none;
+}
+
+/* Emerald gemstone decorations */
+.gem-decoration {
+    position: fixed;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 
+        0 0 20px rgba(0, 210, 106, 0.3),
+        inset 0 0 20px rgba(0, 210, 106, 0.2),
+        inset -5px -5px 10px rgba(0, 0, 0, 0.3);
+    opacity: 0.4;
+    z-index: -1;
+    animation: gemFloat 10s ease-in-out infinite;
+    background: 
+        radial-gradient(circle at 30% 30%, rgba(0, 210, 106, 0.4) 0%, var(--emerald-green) 50%, rgba(0, 77, 50, 0.8) 100%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        linear-gradient(45deg, rgba(0, 210, 106, 0.2) 0%, transparent 50%);
+}
+
+@keyframes gemFloat {
+    0%, 100% {
+        transform: translateY(0) rotate(0deg) scale(1);
+        filter: brightness(1);
+    }
+    25% {
+        transform: translateY(-10px) rotate(2deg) scale(1.02);
+        filter: brightness(1.2);
+    }
+    50% {
+        transform: translateY(-20px) rotate(-2deg) scale(1.05);
+        filter: brightness(1.3);
+    }
+    75% {
+        transform: translateY(-10px) rotate(1deg) scale(1.02);
+        filter: brightness(1.2);
+    }
+}
+
+.gem-decoration.top-left {
+    top: 8%;
+    left: 5%;
+    width: 50px;
+    height: 50px;
+    animation-delay: 0s;
+}
+
+.gem-decoration.top-right {
+    top: 10%;
+    right: 8%;
+    width: 70px;
+    height: 70px;
+    animation-delay: 2s;
+}
+
+.gem-decoration.bottom-left {
+    bottom: 15%;
+    left: 8%;
+    width: 45px;
+    height: 45px;
+    animation-delay: 4s;
+}
+
+.gem-decoration.bottom-right {
+    bottom: 20%;
+    right: 6%;
+    width: 55px;
+    height: 55px;
+    animation-delay: 6s;
+}
+
+@keyframes gemPulse {
+    0%, 100% { 
+        box-shadow: 
+            0 0 20px rgba(0, 210, 106, 0.3),
+            inset 0 0 20px rgba(0, 210, 106, 0.2),
+            inset -5px -5px 10px rgba(0, 0, 0, 0.3);
+    }
+    50% { 
+        box-shadow: 
+            0 0 40px rgba(0, 210, 106, 0.5),
+            inset 0 0 30px rgba(0, 210, 106, 0.3),
+            inset -5px -5px 10px rgba(0, 0, 0, 0.3);
+    }
+}
+
+h1 {
+    color: var(--emerald-glow);
+    font-family: 'Playfair Display', 'Times New Roman', serif;
+    text-shadow: 
+        0 2px 4px rgba(0, 26, 15, 0.8),
+        0 0 30px rgba(0, 210, 106, 0.5),
+        0 0 60px rgba(0, 210, 106, 0.3);
+    border-bottom: 3px solid rgba(0, 210, 106, 0.5);
+    padding-bottom: 0.5rem;
+    margin-top: 2.5rem;
+    position: relative;
+    display: inline-block;
+    background: linear-gradient(90deg, transparent, rgba(0, 210, 106, 0.1), transparent);
+    padding: 0.5rem 2rem;
+    border-radius: 0 10px 10px 0;
+    box-shadow: 0 0 20px rgba(0, 210, 106, 0.2);
+}
+
+h1::before {
+    content: '♦◆♦◆♦';
+    position: absolute;
+    top: -30px;
+    left: -40px;
+    font-size: 1rem;
+    color: var(--emerald-glow);
+    opacity: 0.9;
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px rgba(0, 210, 106, 0.5);
+}
+
+h4 {
+    color: var(--emerald-light);
+    font-family: 'Playfair Display', 'Times New Roman', serif;
+    text-shadow: 
+        0 2px 4px rgba(0, 26, 15, 0.8),
+        0 0 15px rgba(0, 210, 106, 0.4);
+    margin-top: 2rem;
+    position: relative;
+    letter-spacing: 2px;
+}
+
+h4::before {
+    content: '◆';
+    color: var(--emerald-glow);
+    margin-right: 0.8rem;
+    font-size: 1rem;
+    text-shadow: 0 0 15px rgba(0, 210, 106, 0.6);
+}
+
+.btn {
+    background: linear-gradient(135deg, var(--emerald-gradient-light) 0%, var(--emerald-glow) 50%, rgba(0, 210, 106, 0.8) 100%);
+    color: var(--emerald-black);
+    border: 2px solid var(--emerald-glow);
+    padding: 0.9rem 2.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    border-radius: 10px;
+    box-shadow: 
+        0 4px 20px rgba(0, 210, 106, 0.3),
+        0 0 30px rgba(0, 210, 106, 0.2),
+        inset 0 0 20px rgba(255, 255, 255, 0.2);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn:hover {
+    background: linear-gradient(135deg, var(--emerald-gem-white) 0%, #ffffff 50%, var(--emerald-glow) 100%);
+    color: var(--emerald-midnight);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 8px 40px rgba(0, 210, 106, 0.5),
+        0 0 50px rgba(0, 210, 106, 0.3),
+        inset 0 0 30px rgba(255, 255, 255, 0.4);
+}
+
+.btn:hover::before {
+    left: 100%;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.btn:hover::before {
+    left: 100%;
+}
+
+.btn-outline-secondary {
+    border-color: var(--casino-gold) !important;
+    color: var(--casino-gold) !important;
+}
+
+.btn-outline-secondary:hover {
+    background: var(--casino-gold) !important;
+    color: var(--casino-black) !important;
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+}
+
+.output-box {
+    background: 
+        linear-gradient(135deg, rgba(0, 26, 15, 0.98) 0%, rgba(0, 40, 24, 0.98) 100%),
+        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="emerald-crystal" patternUnits="userSpaceOnUse" width="100" height="100"><rect fill="%23001a0f" width="100" height="100"/><polygon points="50,0 100,25 100,75 50,100 0,75 0,25" fill="rgba(0,210,106,0.03)" transform="scale(0.8)"/></pattern></defs><rect fill="url(%23emerald-crystal)" width="100%" height="100%"/></svg>');
+    border: 2px solid rgba(0, 210, 106, 0.5);
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.6),
+        0 0 40px rgba(0, 210, 106, 0.2),
+        inset 0 0 60px rgba(0, 210, 106, 0.1);
+    outline: none;
+    min-height: 200px;
+    position: relative;
+    overflow: hidden;
+}
+
+.output-box::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(135deg, transparent, rgba(0, 210, 106, 0.4), transparent);
+    border-radius: 15px;
+    z-index: -1;
+    animation: emeraldGlow 4s ease-in-out infinite;
+}
+
+@keyframes emeraldGlow {
+    0%, 100% {
+        opacity: 0.5;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.03);
+    }
+}
+
+.output-box pre {
+    color: var(--casino-gold-light);
+    font-family: 'Courier New', monospace;
+    font-size: 0.95rem;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.text-muted {
+    color: var(--casino-gold-light) !important;
+    opacity: 0.8;
+}
+
+hr {
+    border: none;
+    border-top: 2px solid var(--casino-gold);
+    margin: 2rem 0;
+}
+
+footer {
+    background: linear-gradient(180deg, rgba(0, 26, 15, 0.98) 0%, rgba(0, 40, 24, 0.98) 100%);
+    border-top: 1px solid rgba(0, 210, 106, 0.3);
+    padding: 2rem 0;
+    margin-top: 3rem;
+    box-shadow: 
+        0 -5px 30px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(0, 210, 106, 0.2);
+    position: relative;
+}
+
+footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--casino-gold-glow), transparent);
+}
+
+footer small {
+    color: var(--casino-gold-light);
+    font-family: 'Times New Roman', serif;
+}
+
+strong {
+    color: var(--emerald-glow);
+    text-shadow: 0 0 10px rgba(0, 210, 106, 0.6);
+}
+
+.btn:focus {
+    box-shadow: 0 0 0 0.25rem rgba(212, 175, 55, 0.5) !important;
+}
+
+.modal-backdrop {
+    background: rgba(0, 26, 15, 0.95);
+}
+
+.modal-content {
+    background: var(--emerald-dark);
+    border: 2px solid var(--emerald-glow);
+}
+
+.modal-header {
+    border-bottom: 2px solid var(--emerald-glow);
+}
+
+.modal-body {
+    color: var(--emerald-light);
+}
+
+.modal-footer {
+    border-top: 2px solid var(--emerald-glow);
+}
+
+.alert {
+    background: rgba(0, 26, 15, 0.95);
+    border: 2px solid var(--emerald-glow);
+    color: var(--emerald-light);
+}
+
+.form-control {
+    background: var(--emerald-dark);
+    border: 2px solid var(--emerald-glow);
+    color: var(--emerald-white);
+}
+
+.form-control:focus {
+    background: var(--emerald-dark);
+    border-color: var(--emerald-glow);
+    box-shadow: 0 0 20px rgba(0, 210, 106, 0.5);
+}
+
+.form-control::placeholder {
+    color: var(--emerald-glow);
+    opacity: 0.5;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .chip-decoration {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .chip-decoration.top-left,
+    .chip-decoration.top-right {
+        top: 5%;
+    }
+    
+    .chip-decoration.bottom-left,
+    .chip-decoration.bottom-right {
+        bottom: 10%;
+    }
+    
+    .container {
+        padding: 1rem;
+    }
+    
+    .output-box {
+        padding: 1rem;
+    }
+    
+    h1 {
+        font-size: 2rem;
+    }
+    
+    h4 {
+        font-size: 1.3rem;
+    }
+    
+    .btn {
+        font-size: 1rem;
+        padding: 0.6rem 1.5rem;
+    }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 14px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--emerald-black);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--emerald-green) 0%, var(--emerald-dark) 100%);
+    border: 3px solid var(--emerald-black);
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 210, 106, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, var(--emerald-glow) 0%, var(--emerald-green) 100%);
+    box-shadow: 0 0 20px rgba(0, 210, 106, 0.6);
+}
+
+/* Selection styling */
+::selection {
+    background: var(--casino-gold);
+    color: var(--casino-black);
+}
+
+/* Link styling */
+a {
+    color: var(--emerald-glow);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+a:hover {
+    color: var(--emerald-white);
+    text-decoration: underline;
+    text-shadow: 0 0 15px rgba(0, 210, 106, 0.6);
+}

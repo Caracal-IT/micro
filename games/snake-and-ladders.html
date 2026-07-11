@@ -3,48 +3,283 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snake and Ladders</title>
+    <title>Snakes &amp; Ladders</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-            color: white;
+            background: linear-gradient(120deg, #1a0b3d, #4a1273, #7b1fa2, #d1006c, #4a1273, #0b1f4d, #1a0b3d);
+            background-size: 400% 400%;
+            animation: funkyFlow 22s ease infinite;
+            color: #f4f2ff;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
             margin: 0;
-            font-family: sans-serif;
+            padding: 24px 16px;
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            position: relative;
+            overflow-x: hidden;
+        }
+        @keyframes funkyFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.55;
+            pointer-events: none;
+            z-index: 0;
+            mix-blend-mode: screen;
+        }
+        .blob1 {
+            width: 340px;
+            height: 340px;
+            top: -80px;
+            left: -60px;
+            background: #ff2fb0;
+            animation: floatA 16s ease-in-out infinite;
+        }
+        .blob2 {
+            width: 400px;
+            height: 400px;
+            bottom: -120px;
+            right: -100px;
+            background: #00e5ff;
+            animation: floatB 20s ease-in-out infinite;
+        }
+        .blob3 {
+            width: 280px;
+            height: 280px;
+            top: 40%;
+            left: 60%;
+            background: #ffe066;
+            animation: floatC 18s ease-in-out infinite;
+        }
+        .blob4 {
+            width: 240px;
+            height: 240px;
+            top: 70%;
+            left: 5%;
+            background: #7b2ff7;
+            animation: floatA 14s ease-in-out infinite reverse;
+        }
+        .blob5 {
+            width: 220px;
+            height: 220px;
+            top: 5%;
+            right: 15%;
+            background: #ff9800;
+            animation: floatB 24s ease-in-out infinite;
+        }
+        @keyframes floatA {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(60px, 40px) scale(1.15); }
+        }
+        @keyframes floatB {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-50px, -60px) scale(1.1); }
+        }
+        @keyframes floatC {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-40px, 50px) scale(0.9); }
+        }
+        .page {
+            width: 100%;
+            max-width: 1040px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+        .title-bar {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .title-bar h1 {
+            margin: 0;
+            font-size: 40px;
+            letter-spacing: 1px;
+            font-weight: 800;
+            background: linear-gradient(90deg, #ff2fb0, #ff9800, #ffe066, #00e5ff, #7b2ff7, #ff2fb0);
+            background-size: 300% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: rainbowShift 6s linear infinite;
+            text-shadow: 0 2px 24px rgba(255, 47, 176, 0.35);
+        }
+        @keyframes rainbowShift {
+            to { background-position: 300% center; }
+        }
+        .title-bar p {
+            margin: 6px 0 0;
+            color: #e0d9ff;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+        .game-layout {
+            display: flex;
+            gap: 24px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
         }
         #game-container {
             position: relative;
             user-select: none;
+            border-radius: 18px;
+            padding: 12px;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.08);
+            border: 3px solid transparent;
+            background-image: linear-gradient(160deg, rgba(44,39,96,0.65), rgba(26,23,56,0.65)), linear-gradient(120deg, #ff2fb0, #ffe066, #00e5ff, #7b2ff7, #ff2fb0);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+            background-size: 100% 100%, 300% 300%;
+            animation: rainbowShift 8s linear infinite;
         }
         canvas {
+            display: block;
             background: #000;
-            border: 4px solid #444;
             border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
             cursor: pointer;
+            max-width: 100%;
+            height: auto;
         }
-        .ui {
-            margin-bottom: 10px;
-            font-size: 24px;
+        .side-panel {
+            width: 240px;
             display: flex;
-            gap: 30px;
+            flex-direction: column;
+            gap: 14px;
         }
-        #roll-btn {
-            margin-top: 12px;
-            padding: 10px 32px;
-            font-size: 20px;
+        .player-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: linear-gradient(160deg, rgba(44,39,96,0.6), rgba(26,23,56,0.6));
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.08);
+            border: 2px solid transparent;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .player-card.active {
+            border-color: #ffd700;
+            transform: translateX(4px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.35), 0 0 16px rgba(255,215,0,0.35);
+        }
+        .player-card .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 3px rgba(255,255,255,0.15), 0 2px 6px rgba(0,0,0,0.4);
+        }
+        .player-card .info {
+            flex: 1;
+            min-width: 0;
+        }
+        .player-card .name {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .player-card .pos {
+            font-size: 13px;
+            color: #b3adda;
+        }
+        .player-card .turn-indicator {
+            color: #ffd700;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .player-card.active .turn-indicator {
+            opacity: 1;
+        }
+        .dice-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 12px;
+            background: linear-gradient(160deg, rgba(44,39,96,0.6), rgba(26,23,56,0.6));
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .die {
+            width: 66px;
+            height: 66px;
+            background: #fdfdfd;
+            border-radius: 14px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            padding: 9px;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.45), inset 0 -2px 4px rgba(0,0,0,0.08);
+            transition: transform 0.08s ease-out;
+        }
+        .die.rolling {
+            animation: dice-shake 0.3s linear infinite;
+        }
+        @keyframes dice-shake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(-8deg); }
+            75% { transform: rotate(8deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .die .dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #1a5fff;
+            align-self: center;
+            justify-self: center;
+            opacity: 0;
+            transform: scale(0.4);
+            transition: opacity 0.1s, transform 0.1s;
+        }
+        .die .dot.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+        #message {
+            font-size: 14px;
+            color: #ffd700;
+            min-height: 20px;
+            text-align: center;
+        }
+        .button-row {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        #roll-btn, #newgame-btn {
+            flex: 1;
+            padding: 10px 0;
+            font-size: 15px;
             font-weight: bold;
             border: none;
             border-radius: 8px;
-            background: linear-gradient(145deg, #4a9eff, #1a5fff);
             color: #fff;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(26,95,255,0.5);
             transition: transform 0.1s, box-shadow 0.1s;
+        }
+        #roll-btn {
+            background: linear-gradient(145deg, #4a9eff, #1a5fff);
+            box-shadow: 0 4px 12px rgba(26,95,255,0.5);
         }
         #roll-btn:hover {
             transform: scale(1.05);
@@ -54,51 +289,141 @@
             transform: scale(0.97);
         }
         #roll-btn:disabled {
-            background: #555;
-            color: #888;
+            background: #444a5c;
+            color: #8a8fa3;
             cursor: not-allowed;
             box-shadow: none;
+            transform: none;
         }
-        #dice-display {
-            font-size: 48px;
-            margin-top: 8px;
-            min-height: 54px;
+        #newgame-btn {
+            background: linear-gradient(145deg, #ff9800, #f57c00);
+            box-shadow: 0 4px 12px rgba(245,124,0,0.5);
         }
-        #message {
-            margin-top: 6px;
-            font-size: 18px;
-            color: #ffd700;
-            min-height: 22px;
+        #newgame-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(245,124,0,0.7);
+        }
+        #newgame-btn:active {
+            transform: scale(0.97);
+        }
+        @media (max-width: 640px) {
+            .side-panel {
+                width: 100%;
+                max-width: 400px;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .side-panel .player-card {
+                flex: 1 1 45%;
+            }
+            .dice-area {
+                flex: 1 1 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="ui">
-        <div>Player 1: <span id="p1pos">0</span></div>
-        <div>Player 2: <span id="p2pos">0</span></div>
+    <div class="blob blob1"></div>
+    <div class="blob blob2"></div>
+    <div class="blob blob3"></div>
+    <div class="blob blob4"></div>
+    <div class="blob blob5"></div>
+    <div class="page">
+        <div class="title-bar">
+            <h1>Snakes &amp; Ladders</h1>
+            <p>Roll the dice, climb the ladders, dodge the snakes</p>
+        </div>
+        <div class="game-layout">
+            <div class="side-panel">
+                <div class="player-card" id="player-card-0">
+                    <span class="avatar" style="background:#FF355E"></span>
+                    <div class="info">
+                        <div class="name">Player 1</div>
+                        <div class="pos">Square <span id="p1pos">0</span></div>
+                    </div>
+                    <span class="turn-indicator">&#9654;</span>
+                </div>
+                <div class="player-card" id="player-card-1">
+                    <span class="avatar" style="background:#50BFE6"></span>
+                    <div class="info">
+                        <div class="name">Player 2</div>
+                        <div class="pos">Square <span id="p2pos">0</span></div>
+                    </div>
+                    <span class="turn-indicator">&#9654;</span>
+                </div>
+                <div class="dice-area">
+                    <div id="dice" class="die">
+                        <span class="dot pos-0"></span>
+                        <span class="dot pos-1"></span>
+                        <span class="dot pos-2"></span>
+                        <span class="dot pos-3"></span>
+                        <span class="dot pos-4"></span>
+                        <span class="dot pos-5"></span>
+                        <span class="dot pos-6"></span>
+                        <span class="dot pos-7"></span>
+                        <span class="dot pos-8"></span>
+                    </div>
+                    <div id="message"></div>
+                    <div class="button-row">
+                        <button id="roll-btn">Roll Dice</button>
+                        <button id="newgame-btn">New Game</button>
+                    </div>
+                </div>
+            </div>
+            <div id="game-container">
+                <canvas id="gameCanvas"></canvas>
+            </div>
+        </div>
     </div>
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-    </div>
-    <div id="dice-display"></div>
-    <div id="message"></div>
-    <button id="roll-btn">Roll Dice</button>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const rollBtn = document.getElementById('roll-btn');
-        const diceDisplay = document.getElementById('dice-display');
+        const newGameBtn = document.getElementById('newgame-btn');
+        const diceEl = document.getElementById('dice');
+        const diceDots = diceEl.querySelectorAll('.dot');
         const messageEl = document.getElementById('message');
         const p1El = document.getElementById('p1pos');
         const p2El = document.getElementById('p2pos');
+        const playerCards = [
+            document.getElementById('player-card-0'),
+            document.getElementById('player-card-1')
+        ];
+
+        const DICE_FACES = {
+            1: [4],
+            2: [0, 8],
+            3: [0, 4, 8],
+            4: [0, 2, 6, 8],
+            5: [0, 2, 4, 6, 8],
+            6: [0, 2, 3, 5, 6, 8]
+        };
+
+        function setDiceFace(value) {
+            diceDots.forEach(d => d.classList.remove('show'));
+            (DICE_FACES[value] || []).forEach(i => diceDots[i].classList.add('show'));
+        }
 
         const BOARD_SIZE = 10;
         const CELL_SIZE = 72;
         canvas.width = BOARD_SIZE * CELL_SIZE;
         canvas.height = BOARD_SIZE * CELL_SIZE;
 
-        const snakes = {
+        // The classic Milton Bradley "Chutes and Ladders" board layout (9 ladders,
+        // 10 chutes/snakes) - the standard, widely-documented 100-square board.
+        const LADDERS = {
+            1: 38,
+            4: 14,
+            9: 31,
+            21: 42,
+            28: 84,
+            36: 44,
+            51: 67,
+            71: 91,
+            80: 100
+        };
+        const SNAKES = {
             16: 6,
             47: 26,
             49: 11,
@@ -111,17 +436,8 @@
             98: 78
         };
 
-        const ladders = {
-            1: 38,
-            4: 14,
-            9: 31,
-            21: 42,
-            28: 84,
-            36: 44,
-            51: 67,
-            71: 91,
-            80: 100
-        };
+        let snakes = { ...SNAKES };
+        let ladders = { ...LADDERS };
 
         let players = [
             { pos: 0, color: '#FF355E', name: 'P1' },
@@ -145,7 +461,7 @@
 
         function generateSnakePath(start, end) {
             const points = [];
-            const segments = 80;
+            const segments = 90;
             const dx = end.x - start.x;
             const dy = end.y - start.y;
             const len = Math.sqrt(dx * dx + dy * dy);
@@ -153,14 +469,18 @@
 
             const perpX = -dy / len;
             const perpY = dx / len;
-            const amp = Math.min(len * 0.18, 28);
+            // Gentle S-curve, kept low enough relative to segment spacing that
+            // the offset body ribbon never self-intersects. The sin(t*PI)
+            // envelope is exactly 0 at both ends so the snake always lines up
+            // squarely with its start and end squares.
+            const amp = Math.min(len * 0.12, 20);
 
             for (let i = 0; i <= segments; i++) {
                 const t = i / segments;
-                const wave1 = Math.sin(t * Math.PI * 5) * amp;
-                const wave2 = Math.sin(t * Math.PI * 1.7 + 0.8) * amp * 0.45;
-                const wave3 = Math.sin(t * Math.PI * 3.3 + 1.5) * amp * 0.25;
-                const wave = (wave1 + wave2 + wave3) * (1 - t * 0.5);
+                const envelope = Math.sin(t * Math.PI);
+                const wave1 = Math.sin(t * Math.PI * 2.6) * amp;
+                const wave2 = Math.sin(t * Math.PI * 5.2 + 1.1) * amp * 0.28;
+                const wave = (wave1 + wave2) * envelope;
                 points.push({
                     x: start.x + dx * t + perpX * wave,
                     y: start.y + dy * t + perpY * wave,
@@ -172,182 +492,169 @@
 
         function getSnakeColors(from) {
             const palettes = [
-                { body: '#2E7D32', dark: '#1B5E20', belly: '#A5D6A7', eye: '#FFEB3B', scale: '#66BB6A', bellyStart: 0.3 },
-                { body: '#5D4037', dark: '#3E2723', belly: '#BCAAA4', eye: '#FFF176', scale: '#8D6E63', bellyStart: 0.4 },
-                { body: '#00695C', dark: '#004D40', belly: '#80CBC4', eye: '#FFD54F', scale: '#4DB6AC', bellyStart: 0.35 },
-                { body: '#BF360C', dark: '#8B2500', belly: '#FFAB91', eye: '#FFEE58', scale: '#FF7043', bellyStart: 0.5 },
+                { light: '#FF9FDD', body: '#FF2FB0', dark: '#9A0064', outline: '#4E0030', belly: '#FFE0F3', glow: 'rgba(255,47,176,0.45)' },
+                { light: '#8FE3FF', body: '#00A8E8', dark: '#03577E', outline: '#022B3C', belly: '#E3F8FF', glow: 'rgba(0,168,232,0.45)' },
+                { light: '#D2B3FF', body: '#7B2FF7', dark: '#45178C', outline: '#260C4D', belly: '#F1E6FF', glow: 'rgba(123,47,247,0.45)' },
+                { light: '#FFCB8A', body: '#FF9800', dark: '#9A5D00', outline: '#523100', belly: '#FFEFD9', glow: 'rgba(255,152,0,0.45)' },
             ];
             return palettes[from % palettes.length];
         }
 
+        function pathNormal(path, i) {
+            const total = path.length;
+            const p = path[i];
+            let dx, dy;
+            if (i < total - 1) {
+                dx = path[i + 1].x - p.x;
+                dy = path[i + 1].y - p.y;
+            } else {
+                dx = p.x - path[i - 1].x;
+                dy = p.y - path[i - 1].y;
+            }
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            return { nx: -dy / len, ny: dx / len };
+        }
+
+        function snakeBodyWidth(t) {
+            const maxBodyW = 11;
+            const minTailW = 2.5;
+            const taper = Math.pow(1 - t * 0.8, 2);
+            return maxBodyW * taper + minTailW;
+        }
+
+        function tracedOutline(path) {
+            const total = path.length;
+            ctx.beginPath();
+            for (let i = 0; i < total; i++) {
+                const p = path[i];
+                const { nx, ny } = pathNormal(path, i);
+                const w = snakeBodyWidth(p.t);
+                const ex = p.x + nx * w;
+                const ey = p.y + ny * w;
+                if (i === 0) ctx.moveTo(ex, ey);
+                else ctx.lineTo(ex, ey);
+            }
+            for (let i = total - 1; i >= 0; i--) {
+                const p = path[i];
+                const { nx, ny } = pathNormal(path, i);
+                const w = snakeBodyWidth(p.t);
+                ctx.lineTo(p.x - nx * w, p.y - ny * w);
+            }
+            ctx.closePath();
+        }
+
         function drawSnakeBody(path, col) {
             const total = path.length;
-            const maxBodyW = 13;
-            const minTailW = 2;
+            if (total < 2) return;
 
-            // Draw body as filled ribbon with varying width
-            for (let layer = 3; layer >= 1; layer--) {
-                const layerScale = layer / 3;
+            // Grounding drop shadow so the snake reads as lifted off the tile
+            ctx.save();
+            ctx.translate(3, 5);
+            ctx.filter = 'blur(4px)';
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            tracedOutline(path);
+            ctx.fill();
+            ctx.restore();
+
+            // One smooth gradient across the whole body, oriented perpendicular
+            // to the snake's overall direction. Because it's a single fill with
+            // a single gradient there are no per-segment seams, and the
+            // dark-light-dark sweep still reads as a consistently-lit rounded
+            // tube even as the path curves.
+            const first = path[0];
+            const last = path[total - 1];
+            const overallLen = Math.hypot(last.x - first.x, last.y - first.y) || 1;
+            const gPerpX = -(last.y - first.y) / overallLen;
+            const gPerpY = (last.x - first.x) / overallLen;
+            const mid = path[Math.floor(total / 2)];
+            const halfSpan = snakeBodyWidth(0) + 3;
+
+            const gradient = ctx.createLinearGradient(
+                mid.x - gPerpX * halfSpan, mid.y - gPerpY * halfSpan,
+                mid.x + gPerpX * halfSpan, mid.y + gPerpY * halfSpan
+            );
+            gradient.addColorStop(0, col.dark);
+            gradient.addColorStop(0.32, col.body);
+            gradient.addColorStop(0.5, col.light);
+            gradient.addColorStop(0.68, col.body);
+            gradient.addColorStop(1, col.dark);
+
+            ctx.save();
+            ctx.shadowColor = col.glow;
+            ctx.shadowBlur = 12;
+            tracedOutline(path);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.restore();
+
+            // Bold cartoon outline
+            tracedOutline(path);
+            ctx.strokeStyle = col.outline;
+            ctx.lineWidth = 2.2;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+
+        function drawSnakeBelly(path, col) {
+            const total = path.length;
+            if (total < 6) return;
+
+            // Path points are evenly spaced by t, so the index range for a
+            // given t window can be computed directly instead of searched.
+            const startI = Math.max(1, Math.ceil(0.1 * (total - 1)));
+            const endI = Math.min(total - 2, Math.floor(0.95 * (total - 1)));
+            if (endI - startI < 1) return;
+
+            ctx.beginPath();
+            for (let i = startI; i <= endI; i++) {
+                const p = path[i];
+                const { nx, ny } = pathNormal(path, i);
+                const w = snakeBodyWidth(p.t) * 0.55;
+                const ex = p.x + nx * w;
+                const ey = p.y + ny * w;
+                if (i === startI) ctx.moveTo(ex, ey);
+                else ctx.lineTo(ex, ey);
+            }
+            for (let i = endI; i >= startI; i--) {
+                const p = path[i];
+                const { nx, ny } = pathNormal(path, i);
+                const w = snakeBodyWidth(p.t) * 0.22;
+                ctx.lineTo(p.x + nx * w, p.y + ny * w);
+            }
+            ctx.closePath();
+            ctx.fillStyle = col.belly;
+            ctx.globalAlpha = 0.6;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        function drawSnakePattern(path, col) {
+            const total = path.length;
+            const spacing = 9;
+
+            for (let i = 6; i < total - 6; i += spacing) {
+                const p = path[i];
+                if (p.t < 0.08 || p.t > 0.9) continue;
+
+                const a = path[Math.max(i - 3, 0)];
+                const b = path[Math.min(i + 3, total - 1)];
+                const fl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+                const fx = (b.x - a.x) / fl;
+                const fy = (b.y - a.y) / fl;
+                const { nx, ny } = pathNormal(path, i);
+                const w = snakeBodyWidth(p.t) * 0.62;
+
                 ctx.beginPath();
-
-                // Right edge
-                for (let i = 0; i < total; i++) {
-                    const p = path[i];
-                    const t = p.t;
-                    const taper = Math.pow(1 - t * 0.85, 2);
-                    const w = (maxBodyW * taper + minTailW) * layerScale;
-
-                    // Compute perpendicular direction
-                    let nx, ny;
-                    if (i < total - 1) {
-                        const dx = path[i + 1].x - p.x;
-                        const dy = path[i + 1].y - p.y;
-                        const sl = Math.sqrt(dx * dx + dy * dy) || 1;
-                        nx = -dy / sl;
-                        ny = dx / sl;
-                    } else {
-                        const dx = p.x - path[i - 1].x;
-                        const dy = p.y - path[i - 1].y;
-                        const sl = Math.sqrt(dx * dx + dy * dy) || 1;
-                        nx = -dy / sl;
-                        ny = dx / sl;
-                    }
-
-                    const ex = p.x + nx * w;
-                    const ey = p.y + ny * w;
-                    if (i === 0) ctx.moveTo(ex, ey);
-                    else ctx.lineTo(ex, ey);
-                }
-
-                // Left edge (reverse)
-                for (let i = total - 1; i >= 0; i--) {
-                    const p = path[i];
-                    const t = p.t;
-                    const taper = Math.pow(1 - t * 0.85, 2);
-                    const w = (maxBodyW * taper + minTailW) * layerScale;
-
-                    let nx, ny;
-                    if (i > 0) {
-                        const dx = p.x - path[i - 1].x;
-                        const dy = p.y - path[i - 1].y;
-                        const sl = Math.sqrt(dx * dx + dy * dy) || 1;
-                        nx = -dy / sl;
-                        ny = dx / sl;
-                    } else {
-                        const dx = path[1].x - p.x;
-                        const dy = path[1].y - p.y;
-                        const sl = Math.sqrt(dx * dx + dy * dy) || 1;
-                        nx = -dy / sl;
-                        ny = dx / sl;
-                    }
-
-                    ctx.lineTo(p.x - nx * w, p.y - ny * w);
-                }
-
+                ctx.moveTo(p.x + fx * w, p.y + fy * w);
+                ctx.lineTo(p.x + nx * w * 0.85, p.y + ny * w * 0.85);
+                ctx.lineTo(p.x - fx * w, p.y - fy * w);
+                ctx.lineTo(p.x - nx * w * 0.85, p.y - ny * w * 0.85);
                 ctx.closePath();
-                if (layer === 1) {
-                    ctx.fillStyle = col.body;
-                } else if (layer === 2) {
-                    ctx.fillStyle = col.dark;
-                } else {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                }
+                ctx.fillStyle = col.dark;
+                ctx.globalAlpha = 0.4;
                 ctx.fill();
+                ctx.globalAlpha = 1;
             }
-        }
-
-        function drawSnakeScales(path, col) {
-            const total = path.length;
-            const scaleSpacing = 4;
-
-            for (let i = 0; i < total; i += scaleSpacing) {
-                const p = path[i];
-                const t = p.t;
-                if (t < 0.15 || t > 0.9) continue;
-
-                let nx, ny;
-                if (i < total - 1) {
-                    const dx = path[Math.min(i + 1, total - 1)].x - p.x;
-                    const dy = path[Math.min(i + 1, total - 1)].y - p.y;
-                    const sl = Math.sqrt(dx * dx + dy * dy) || 1;
-                    nx = -dy / sl;
-                    ny = dx / sl;
-                } else {
-                    const dx = p.x - path[i - 1].x;
-                    const dy = p.y - path[i - 1].y;
-                    const sl = Math.sqrt(dx * dx + dy * dy) || 1;
-                    nx = -dy / sl;
-                    ny = dx / sl;
-                }
-
-                const taper = Math.pow(1 - t * 0.85, 2);
-                const scaleW = 4 * taper;
-
-                // Draw scale as small arc
-                ctx.strokeStyle = col.scale;
-                ctx.lineWidth = 1.2;
-                ctx.globalAlpha = 0.6;
-                ctx.beginPath();
-                ctx.arc(
-                    p.x + nx * scaleW * 0.5,
-                    p.y + ny * scaleW * 0.5,
-                    scaleW * 0.8,
-                    Math.atan2(ny, nx) - 0.6,
-                    Math.atan2(ny, nx) + 0.6
-                );
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.arc(
-                    p.x - nx * scaleW * 0.5,
-                    p.y - ny * scaleW * 0.5,
-                    scaleW * 0.8,
-                    Math.atan2(-ny, -nx) - 0.6,
-                    Math.atan2(-ny, -nx) + 0.6
-                );
-                ctx.stroke();
-                ctx.globalAlpha = 1.0;
-            }
-        }
-
-        function drawBellyPattern(path, col) {
-            const total = path.length;
-
-            for (let i = 0; i < total; i += 3) {
-                const p = path[i];
-                const t = p.t;
-                const bellyT = Math.max(0, t - col.bellyStart);
-                if (bellyT <= 0) continue;
-
-                const bellyWidth = (1 - Math.pow(bellyT, 2)) * 3;
-                if (bellyWidth < 0.5) continue;
-
-                let nx, ny;
-                if (i < total - 1) {
-                    const dx = path[i + 1].x - p.x;
-                    const dy = path[i + 1].y - p.y;
-                    const sl = Math.sqrt(dx * dx + dy * dy) || 1;
-                    nx = -dy / sl;
-                    ny = dx / sl;
-                } else {
-                    const dx = p.x - path[i - 1].x;
-                    const dy = p.y - path[i - 1].y;
-                    const sl = Math.sqrt(dx * dx + dy * dy) || 1;
-                    nx = -dy / sl;
-                    ny = dx / sl;
-                }
-
-                ctx.fillStyle = col.belly;
-                ctx.globalAlpha = 0.25;
-                ctx.beginPath();
-                ctx.ellipse(
-                    p.x, p.y,
-                    bellyWidth * 1.5, bellyWidth,
-                    Math.atan2(ny, nx), 0, Math.PI * 2
-                );
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1.0;
         }
 
         function drawSnakeHead(head, neck, col) {
@@ -359,102 +666,97 @@
             const perpX = -Math.sin(headAngle);
             const perpY = Math.cos(headAngle);
 
-            const headR = 12;
+            // Wide enough to fully cover the body's neck width or the body's
+            // outline/glow will poke out from behind the head.
+            const headR = snakeBodyWidth(0) + 3;
+            const headCx = head.x + fwdX * headR * 0.3;
+            const headCy = head.y + fwdY * headR * 0.3;
+            const headRx = headR * 1.3;
+            const headRy = headR * 1.05;
 
-            // Head base - broader, triangular
-            ctx.fillStyle = col.body;
+            // Drop shadow to match the body
+            ctx.save();
+            ctx.translate(3, 5);
+            ctx.filter = 'blur(4px)';
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
             ctx.beginPath();
-            ctx.ellipse(
-                head.x + fwdX * 3, head.y + fwdY * 3,
-                headR * 1.4, headR,
-                headAngle, 0, Math.PI * 2
-            );
+            ctx.ellipse(headCx, headCy, headRx, headRy, headAngle, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
 
-            // Head highlight
-            ctx.fillStyle = col.dark;
+            // Rounded cartoon head, same light-mid-dark family as the body
+            const headGradient = ctx.createRadialGradient(
+                headCx + perpX * headR * 0.4, headCy + perpY * headR * 0.4, headR * 0.15,
+                headCx, headCy, headR * 1.6
+            );
+            headGradient.addColorStop(0, col.light);
+            headGradient.addColorStop(0.6, col.body);
+            headGradient.addColorStop(1, col.dark);
+
+            ctx.save();
+            ctx.shadowColor = col.glow;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = headGradient;
             ctx.beginPath();
-            ctx.ellipse(
-                head.x + fwdX * 5, head.y + fwdY * 5,
-                headR, headR * 0.7,
-                headAngle, 0, Math.PI * 2
-            );
+            ctx.ellipse(headCx, headCy, headRx, headRy, headAngle, 0, Math.PI * 2);
             ctx.fill();
+            ctx.restore();
 
-            // Belly underneath
-            ctx.fillStyle = col.belly;
-            ctx.globalAlpha = 0.3;
+            // Bold outline matching the body
             ctx.beginPath();
-            ctx.ellipse(
-                head.x + fwdX * 4, head.y + fwdY * 4,
-                headR * 0.7, headR * 0.4,
-                headAngle, 0, Math.PI * 2
-            );
-            ctx.fill();
-            ctx.globalAlpha = 1.0;
+            ctx.ellipse(headCx, headCy, headRx, headRy, headAngle, 0, Math.PI * 2);
+            ctx.strokeStyle = col.outline;
+            ctx.lineWidth = 2.2;
+            ctx.stroke();
 
-            // Eyes - larger, with slit pupils
-            const eyeDist = 5;
-            const eyeFwdOffset = 6;
+            // Brow ridge for a bit of expression
+            ctx.beginPath();
+            ctx.ellipse(headCx, headCy, headRx * 0.85, headRy * 0.75, headAngle, Math.PI * 1.12, Math.PI * 1.88);
+            ctx.strokeStyle = col.outline;
+            ctx.lineWidth = 1.6;
+            ctx.globalAlpha = 0.5;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            // Big cartoon eyes
+            const eyeFwd = headR * 0.5;
+            const eyeSide = headR * 0.55;
+            const eyeR = Math.max(3.4, headR * 0.34);
             for (const side of [-1, 1]) {
-                const ex = head.x + fwdX * eyeFwdOffset + perpX * eyeDist * side;
-                const ey = head.y + fwdY * eyeFwdOffset + perpY * eyeDist * side;
+                const ex = headCx + fwdX * eyeFwd + perpX * eyeSide * side;
+                const ey = headCy + fwdY * eyeFwd + perpY * eyeSide * side;
 
-                // Eye white/sclera
-                ctx.fillStyle = col.eye;
+                ctx.fillStyle = '#ffffff';
                 ctx.beginPath();
-                ctx.ellipse(ex, ey, 3.5, 2.5, headAngle, 0, Math.PI * 2);
+                ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = col.outline;
+                ctx.lineWidth = 1.3;
+                ctx.stroke();
+
+                ctx.fillStyle = '#181425';
+                ctx.beginPath();
+                ctx.arc(ex + fwdX * eyeR * 0.2, ey + fwdY * eyeR * 0.2, eyeR * 0.55, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Slit pupil
-                ctx.fillStyle = '#111';
+                ctx.fillStyle = 'rgba(255,255,255,0.9)';
                 ctx.beginPath();
-                ctx.ellipse(
-                    ex + fwdX * 0.5, ey + fwdY * 0.5,
-                    1.0, 2.0, headAngle, 0, Math.PI * 2
-                );
-                ctx.fill();
-
-                // Eye highlight
-                ctx.fillStyle = 'rgba(255,255,255,0.6)';
-                ctx.beginPath();
-                ctx.arc(ex - perpX * side, ey - perpY * side, 0.8, 0, Math.PI * 2);
+                ctx.arc(ex - fwdX * eyeR * 0.1 - perpX * side * eyeR * 0.25, ey - fwdY * eyeR * 0.1 - perpY * side * eyeR * 0.25, eyeR * 0.22, 0, Math.PI * 2);
                 ctx.fill();
             }
 
-            // Nostrils
-            const nostrilDist = 3;
-            for (const side of [-1, 1]) {
-                const nox = head.x + fwdX * 12 + perpX * nostrilDist * side;
-                const noy = head.y + fwdY * 12 + perpY * nostrilDist * side;
-                ctx.fillStyle = '#111';
-                ctx.beginPath();
-                ctx.arc(nox, noy, 1, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Heat pits (between eye and nostril)
-            for (const side of [-1, 1]) {
-                const pix = head.x + fwdX * 9 + perpX * 4 * side;
-                const pid = head.y + fwdY * 9 + perpY * 4 * side;
-                ctx.fillStyle = 'rgba(0,0,0,0.2)';
-                ctx.beginPath();
-                ctx.arc(pix, pid, 1.5, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Forked tongue
-            ctx.strokeStyle = '#E53935';
-            ctx.lineWidth = 1.5;
-            const tongueBase = headR * 1.3;
-            const tongueLen = 10;
-            const forkLen = 5;
-
-            const tBaseX = head.x + fwdX * tongueBase;
-            const tBaseY = head.y + fwdY * tongueBase;
+            // Simple bold forked tongue
+            const tongueBase = headR * 1.2;
+            const tongueLen = headR * 0.85;
+            const forkLen = headR * 0.4;
+            const tBaseX = headCx + fwdX * tongueBase;
+            const tBaseY = headCy + fwdY * tongueBase;
             const tipX = tBaseX + fwdX * tongueLen;
             const tipY = tBaseY + fwdY * tongueLen;
 
+            ctx.strokeStyle = '#FF3B30';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(tBaseX, tBaseY);
             ctx.lineTo(tipX, tipY);
@@ -462,18 +764,12 @@
 
             ctx.beginPath();
             ctx.moveTo(tipX, tipY);
-            ctx.lineTo(
-                tipX + fwdX * forkLen + perpX * 2.5,
-                tipY + fwdY * forkLen + perpY * 2.5
-            );
+            ctx.lineTo(tipX + fwdX * forkLen + perpX * forkLen * 0.6, tipY + fwdY * forkLen + perpY * forkLen * 0.6);
             ctx.stroke();
 
             ctx.beginPath();
             ctx.moveTo(tipX, tipY);
-            ctx.lineTo(
-                tipX + fwdX * forkLen - perpX * 2.5,
-                tipY + fwdY * forkLen - perpY * 2.5
-            );
+            ctx.lineTo(tipX + fwdX * forkLen - perpX * forkLen * 0.6, tipY + fwdY * forkLen - perpY * forkLen * 0.6);
             ctx.stroke();
         }
 
@@ -485,19 +781,23 @@
 
             const col = getSnakeColors(from);
 
-            // Draw body with varying thickness (head fat, tail thin)
             drawSnakeBody(path, col);
+            drawSnakeBelly(path, col);
+            drawSnakePattern(path, col);
 
-            // Draw scale pattern along body
-            drawSnakeScales(path, col);
-
-            // Draw lighter belly strip
-            drawBellyPattern(path, col);
-
-            // Draw head
             const head = path[0];
             const neck = path[4] || path[2];
             drawSnakeHead(head, neck, col);
+        }
+
+        function getLadderColors(from) {
+            const palettes = [
+                { rail: '#00C2FF', railLight: '#B3ECFF', rung: '#FFE066', rungLight: '#FFF6CC', glow: 'rgba(0,194,255,0.55)' },
+                { rail: '#FF2FB0', railLight: '#FFC2E8', rung: '#7B2FF7', rungLight: '#D6B3FF', glow: 'rgba(255,47,176,0.55)' },
+                { rail: '#FFD700', railLight: '#FFF3B0', rung: '#FF6F00', rungLight: '#FFB74D', glow: 'rgba(255,215,0,0.55)' },
+                { rail: '#00E676', railLight: '#B9F6CA', rung: '#00C2FF', rungLight: '#80DEEA', glow: 'rgba(0,230,118,0.55)' },
+            ];
+            return palettes[from % palettes.length];
         }
 
         function drawLadder(from, to) {
@@ -508,13 +808,17 @@
             const len = Math.sqrt(dx * dx + dy * dy);
             if (len < 1) return;
 
+            const col = getLadderColors(from);
             const ux = -dy / len;
             const uy = dx / len;
             const railWidth = 14;
-            const railThickness = 3;
+            const railThickness = 4;
             const rungs = Math.max(3, Math.floor(len / 20));
 
-            // Draw rails with wood gradient effect
+            ctx.shadowColor = col.glow;
+            ctx.shadowBlur = 10;
+
+            // Draw glossy, colorful rails
             for (const side of [-1, 1]) {
                 const rx = ux * railWidth * side;
                 const ry = uy * railWidth * side;
@@ -529,30 +833,30 @@
                 ctx.stroke();
 
                 // Main rail
-                ctx.strokeStyle = '#8B6914';
+                ctx.strokeStyle = col.rail;
                 ctx.lineWidth = railThickness;
                 ctx.beginPath();
                 ctx.moveTo(start.x + rx, start.y + ry);
                 ctx.lineTo(end.x + rx, end.y + ry);
                 ctx.stroke();
 
-                // Highlight
-                ctx.strokeStyle = '#C49A3A';
-                ctx.lineWidth = 1;
+                // Glossy highlight
+                ctx.strokeStyle = col.railLight;
+                ctx.lineWidth = 1.4;
                 ctx.beginPath();
-                ctx.moveTo(start.x + rx - ux * 0.5, start.y + ry - uy * 0.5);
-                ctx.lineTo(end.x + rx - ux * 0.5, end.y + ry - uy * 0.5);
+                ctx.moveTo(start.x + rx - ux * 0.6, start.y + ry - uy * 0.6);
+                ctx.lineTo(end.x + rx - ux * 0.6, end.y + ry - uy * 0.6);
                 ctx.stroke();
             }
 
-            // Draw rungs
+            // Draw candy-striped rungs
             for (let i = 0; i <= rungs; i++) {
                 const t = i / rungs;
                 const rx = start.x + dx * t;
                 const ry = start.y + dy * t;
 
-                ctx.strokeStyle = '#7A5C10';
-                ctx.lineWidth = 3;
+                ctx.strokeStyle = col.rung;
+                ctx.lineWidth = 3.5;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
                 ctx.moveTo(rx + ux * railWidth, ry + uy * railWidth);
@@ -560,20 +864,22 @@
                 ctx.stroke();
 
                 // Rung highlight
-                ctx.strokeStyle = '#B8922E';
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = col.rungLight;
+                ctx.lineWidth = 1.2;
                 ctx.beginPath();
                 ctx.moveTo(rx + ux * railWidth + uy * 0.5, ry + uy * railWidth - ux * 0.5);
                 ctx.lineTo(rx - ux * railWidth + uy * 0.5, ry - uy * railWidth - ux * 0.5);
                 ctx.stroke();
             }
 
+            ctx.shadowBlur = 0;
+
             // Small posts at ends
             for (const pt of [start, end]) {
                 for (const side of [-1, 1]) {
-                    ctx.fillStyle = '#6B4E0A';
+                    ctx.fillStyle = col.rail;
                     ctx.beginPath();
-                    ctx.arc(pt.x + ux * railWidth * side, pt.y + uy * railWidth * side, 2.5, 0, Math.PI * 2);
+                    ctx.arc(pt.x + ux * railWidth * side, pt.y + uy * railWidth * side, 3, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
@@ -591,15 +897,17 @@
                     const x = c * CELL_SIZE;
                     const y = r * CELL_SIZE;
 
-                    const isSnake = snakes[square];
-                    const isLadder = ladders[square];
-
                     if ((r + c) % 2 === 0) {
                         ctx.fillStyle = '#FFFFFF';
                     } else {
                         ctx.fillStyle = '#1a5fff';
                     }
                     ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+
+                    if (snakes[square] || ladders[square]) {
+                        ctx.fillStyle = snakes[square] ? 'rgba(255,53,94,0.18)' : 'rgba(76,175,80,0.22)';
+                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+                    }
 
                     ctx.strokeStyle = '#333';
                     ctx.lineWidth = 1;
@@ -724,6 +1032,7 @@
         function updatePositions() {
             p1El.textContent = players[0].pos;
             p2El.textContent = players[1].pos;
+            playerCards.forEach((card, i) => card.classList.toggle('active', i === currentPlayer && !gameOver));
         }
 
         function rollDice() {
@@ -732,15 +1041,30 @@
             rollBtn.disabled = true;
             messageEl.textContent = '';
 
-            const dice = Math.floor(Math.random() * 6) + 1;
-            diceDisplay.textContent = dice;
+            let spins = 0;
+            const maxSpins = 10;
+            diceEl.classList.add('rolling');
+            const spinInterval = setInterval(() => {
+                setDiceFace(1 + Math.floor(Math.random() * 6));
+                spins++;
+                if (spins >= maxSpins) {
+                    clearInterval(spinInterval);
+                    diceEl.classList.remove('rolling');
+                    const dice = 1 + Math.floor(Math.random() * 6);
+                    setDiceFace(dice);
+                    resolveRoll(dice);
+                }
+            }, 60);
+        }
 
+        function resolveRoll(dice) {
             const player = players[currentPlayer];
             const newPos = Math.min(player.pos + dice, 100);
 
             if (player.pos === newPos) {
                 messageEl.textContent = `${player.name} rolled ${dice}, needs exact roll!`;
                 currentPlayer = (currentPlayer + 1) % players.length;
+                updatePositions();
                 animating = false;
                 rollBtn.disabled = false;
                 return;
@@ -748,7 +1072,7 @@
 
             animateMove(currentPlayer, player.pos, newPos, () => {
                 if (snakes[newPos]) {
-                    messageEl.textContent = `${player.name} slider down the snake!`;
+                    messageEl.textContent = `${player.name} slides down the snake!`;
                     const dest = snakes[newPos];
                     const snakePath = generateSnakePath(getCellCenter(newPos), getCellCenter(dest));
                     animateAlongPath(currentPlayer, snakePath, dest, () => {
@@ -772,13 +1096,30 @@
             if (player.pos === 100) {
                 messageEl.textContent = `🎉 ${player.name} WINS! 🎉`;
                 gameOver = true;
-                diceDisplay.textContent = '';
                 rollBtn.disabled = true;
+                updatePositions();
                 return;
             }
             currentPlayer = (currentPlayer + 1) % players.length;
+            updatePositions();
             animating = false;
             rollBtn.disabled = false;
+        }
+
+        function resetGame() {
+            animDisplay.active = false;
+            animDisplay.x = null;
+            animDisplay.y = null;
+            players[0].pos = 0;
+            players[1].pos = 0;
+            currentPlayer = 0;
+            gameOver = false;
+            animating = false;
+            rollBtn.disabled = false;
+            setDiceFace(0);
+            messageEl.textContent = '';
+            updatePositions();
+            drawBoard();
         }
 
         canvas.addEventListener('click', () => {
@@ -790,7 +1131,12 @@
             e.stopPropagation();
             rollDice();
         });
+        newGameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetGame();
+        });
 
+        updatePositions();
         drawBoard();
     </script>
 </body>

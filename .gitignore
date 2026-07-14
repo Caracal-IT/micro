@@ -23,3 +23,4 @@ photo-album-organizer/node_modules/
 photo-album-organizer/dist/
 *.log
 .env
+/games/.abacusai/config.json
